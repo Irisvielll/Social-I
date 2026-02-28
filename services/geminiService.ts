@@ -2,9 +2,24 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { Difficulty } from "../types";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+let aiInstance: GoogleGenAI | null = null;
+
+const getAI = () => {
+  if (!aiInstance) {
+    const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
+    if (!apiKey) {
+      console.error("GEMINI_API_KEY is not set. AI features will be disabled.");
+      return null;
+    }
+    aiInstance = new GoogleGenAI({ apiKey });
+  }
+  return aiInstance;
+};
 
 export const generateDailyChallenge = async (userLevel: number) => {
+  const ai = getAI();
+  if (!ai) throw new Error("AI Service unavailable (Missing API Key)");
+  
   const diff = userLevel < 5 ? Difficulty.EASY : userLevel < 12 ? Difficulty.MEDIUM : Difficulty.HARD;
   
   try {
@@ -41,6 +56,9 @@ export const generateDailyChallenge = async (userLevel: number) => {
 };
 
 export const getEncouragement = async (stats: any) => {
+  const ai = getAI();
+  if (!ai) return "Keep pushing your boundaries! You're doing great.";
+  
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
@@ -53,6 +71,9 @@ export const getEncouragement = async (stats: any) => {
 };
 
 export const getAIFriendResponse = async (message: string, userName: string, aiName: string, stats: any) => {
+  const ai = getAI();
+  if (!ai) return "I'm here for you! Keep pushing those boundaries.";
+
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',

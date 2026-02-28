@@ -1,0 +1,26 @@
+@import "tailwindcss";
+
+:root {
+  --foreground-rgb: 0, 0, 0;
+  --background-start-rgb: 214, 219, 220;
+  --background-end-rgb: 255, 255, 255;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+}
+
+/* Custom scrollbar for the "Circle" list */
+.valorant-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+.valorant-scrollbar::-webkit-scrollbar-track {
+  background: #1a1c22;
+  border-radius: 10px;
+}
+.valorant-scrollbar::-webkit-scrollbar-thumb {
+  background: #4f46e5;
+  border-radius: 10px;
+}
