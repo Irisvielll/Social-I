@@ -1,20 +1,42 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# 🚀 Introvert Up! - Getting Started
 
-# Run and deploy your AI Studio app
+Welcome to your new app! Here is how you get it running on your own computer.
 
-This contains everything you need to run your app locally.
+## 🛠 Prerequisites
+1. **Install Node.js**: Go to [nodejs.org](https://nodejs.org) and download the **LTS** version.
+2. **Download this code**: Click the "Download" or "Export" button in AI Studio to get the files.
 
-View your app in AI Studio: https://ai.studio/apps/60c3cb44-36cd-4cb3-b3d3-73e41b7efc86
+## 🏃‍♂️ How to Run the App
+Open your **Terminal** (Mac) or **Command Prompt** (Windows) and follow these steps:
 
-## Run Locally
+### 1. Go to the folder
+Type `cd` followed by a space, then drag your project folder into the terminal window. It will look something like this:
+```bash
+cd C:\Users\YourName\Downloads\introvert-up
+```
 
-**Prerequisites:**  Node.js
+### 2. Install the tools
+Type this and press Enter. Wait for it to finish (it might take a minute!):
+```bash
+npm install
+```
 
+### 3. Start the engine
+Type this and press Enter:
+```bash
+npm run dev
+```
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+### 4. Open your browser
+The terminal will say `Server running on http://localhost:3000`. 
+Copy that address and paste it into Chrome or Safari!
+
+---
+
+## 📱 Making it a Mobile App
+To put this on the App Store or Google Play, you will need to use **Capacitor**. 
+1. Run `npm install @capacitor/core @capacitor/cli`
+2. Run `npx cap init`
+3. Run `npx cap add ios` (for iPhone) or `npx cap add android` (for Android).
+
+Good luck, Social Hero! 🌟
