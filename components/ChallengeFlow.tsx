@@ -1,18 +1,22 @@
 
 import React, { useState, useEffect } from 'react';
-import { Timer, Sword, Trophy, Camera, Send, Check, X, MessageSquare, Minus, Maximize2 } from 'lucide-react';
+import { Timer, Sword, Trophy, Camera, X, MessageSquare, Minus, Maximize2 } from 'lucide-react';
 import { SocialChallenge, UserStats } from '../types';
 import TicTacToe from './TicTacToe';
+import { Language, TRANSLATIONS } from '../translations';
+import { translateText } from '../services/geminiService';
 
 interface ChallengeFlowProps {
   challenge: SocialChallenge;
   myId: string;
   socket: any;
   setStats: React.Dispatch<React.SetStateAction<UserStats>>;
+  stats: UserStats;
   onClose: () => void;
 }
 
-const ChallengeFlow: React.FC<ChallengeFlowProps> = ({ challenge, myId, socket, setStats, onClose }) => {
+const ChallengeFlow: React.FC<ChallengeFlowProps> = ({ challenge, myId, socket, setStats, stats, onClose }) => {
+  const t = TRANSLATIONS[stats.language as Language] || TRANSLATIONS.English;
   const [proposal, setProposal] = useState("");
   const [timeLeft, setTimeLeft] = useState(0);
   const [isMinimized, setIsMinimized] = useState(false);
@@ -20,6 +24,48 @@ const ChallengeFlow: React.FC<ChallengeFlowProps> = ({ challenge, myId, socket, 
   const opponentId = isFromMe ? challenge.toId : challenge.fromId;
 
   const [hasAwardedPoints, setHasAwardedPoints] = useState(false);
+  const [translatedPrompts, setTranslatedPrompts] = useState<Record<string, string>>({});
+  const [translatedFinalPrompt, setTranslatedFinalPrompt] = useState("");
+
+  // Translate proposals
+  useEffect(() => {
+    const translateProposals = async () => {
+      const newTranslations: Record<string, string> = { ...translatedPrompts };
+      let changed = false;
+
+      for (const [userId, prompt] of Object.entries(challenge.proposedPrompts)) {
+        if (!newTranslations[userId] && prompt) {
+          if (stats.language && stats.language !== 'English') {
+            newTranslations[userId] = await translateText(prompt, stats.language);
+          } else {
+            newTranslations[userId] = prompt;
+          }
+          changed = true;
+        }
+      }
+
+      if (changed) setTranslatedPrompts(newTranslations);
+    };
+
+    translateProposals();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [challenge.proposedPrompts, stats.language]);
+
+  // Translate final prompt
+  useEffect(() => {
+    const translateFinal = async () => {
+      if (challenge.finalPrompt && !translatedFinalPrompt) {
+        if (stats.language && stats.language !== 'English') {
+          const translated = await translateText(challenge.finalPrompt, stats.language);
+          setTranslatedFinalPrompt(translated);
+        } else {
+          setTranslatedFinalPrompt(challenge.finalPrompt);
+        }
+      }
+    };
+    translateFinal();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [challenge.finalPrompt, stats.language]);
 
   // Award points logic
   useEffect(() => {
@@ -70,6 +116,7 @@ const ChallengeFlow: React.FC<ChallengeFlowProps> = ({ challenge, myId, socket, 
       interval = setInterval(updateRacingTimer, 1000);
     }
     return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [challenge.status, challenge.startTime, challenge.id, myId, socket]);
 
   const submitProposal = () => {
@@ -121,7 +168,7 @@ const ChallengeFlow: React.FC<ChallengeFlowProps> = ({ challenge, myId, socket, 
 
   const renderPhase = () => {
     switch (challenge.status) {
-      case 'proposing':
+      case 'proposing': {
         const hasProposed = !!challenge.proposedPrompts[myId];
         return (
           <div className="space-y-6 text-center">
@@ -130,7 +177,7 @@ const ChallengeFlow: React.FC<ChallengeFlowProps> = ({ challenge, myId, socket, 
                 <MessageSquare size={40} />
               </div>
             </div>
-            <h3 className="text-2xl font-black text-slate-900 uppercase italic tracking-tighter">Propose a Mission</h3>
+            <h3 className="text-2xl font-black text-slate-900 uppercase italic tracking-tighter">{t.proposeMission}</h3>
             <p className="text-slate-500 font-medium">What should your opponent do? Be creative!</p>
             
             {!hasProposed ? (
@@ -149,18 +196,19 @@ const ChallengeFlow: React.FC<ChallengeFlowProps> = ({ challenge, myId, socket, 
               </div>
             ) : (
               <div className="p-6 bg-emerald-50 border-2 border-emerald-100 rounded-3xl text-emerald-700 font-bold">
-                Waiting for opponent to propose...
+                {t.opponentProposing}
               </div>
             )}
           </div>
         );
+      }
 
       case 'minigame':
         return (
           <div className="space-y-6">
             <div className="text-center">
-              <h3 className="text-2xl font-black text-slate-900 uppercase italic tracking-tighter">Minigame Battle</h3>
-              <p className="text-slate-500 font-medium">Winner chooses the final mission!</p>
+              <h3 className="text-2xl font-black text-slate-900 uppercase italic tracking-tighter">{t.minigameBattle}</h3>
+              <p className="text-slate-500 font-medium">{t.winnerChooses}</p>
             </div>
             <TicTacToe 
               myId={myId} 
@@ -172,12 +220,12 @@ const ChallengeFlow: React.FC<ChallengeFlowProps> = ({ challenge, myId, socket, 
           </div>
         );
 
-      case 'choosing':
+      case 'choosing': {
         const isWinner = challenge.minigameWinnerId === myId;
         return (
           <div className="space-y-6 text-center">
             <h3 className="text-2xl font-black text-slate-900 uppercase italic tracking-tighter">
-              {isWinner ? "You Won! Choose the Mission" : "Opponent is Choosing..."}
+              {isWinner ? t.youWonChoose : t.opponentChoosing}
             </h3>
             <div className="grid grid-cols-1 gap-4">
               {Object.entries(challenge.proposedPrompts).map(([userId, prompt]) => (
@@ -194,21 +242,22 @@ const ChallengeFlow: React.FC<ChallengeFlowProps> = ({ challenge, myId, socket, 
                   <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">
                     {userId === myId ? "Your Proposal" : "Opponent's Proposal"}
                   </p>
-                  <p className="text-lg font-bold text-slate-800">{prompt}</p>
+                  <p className="text-lg font-bold text-slate-800">{translatedPrompts[userId] || prompt}</p>
                 </button>
               ))}
             </div>
           </div>
         );
+      }
 
       case 'racing':
         return (
           <div className="space-y-8 text-center">
             <div className="p-8 bg-indigo-600 rounded-[2.5rem] text-white shadow-2xl shadow-indigo-200">
-              <h3 className="text-3xl font-black uppercase italic tracking-tighter mb-4">The Race is On!</h3>
+              <h3 className="text-3xl font-black uppercase italic tracking-tighter mb-4">{t.raceIsOn}</h3>
               <div className="bg-white/10 rounded-2xl p-6 mb-6">
-                <p className="text-[10px] font-black uppercase tracking-widest opacity-60 mb-2">Target Mission</p>
-                <p className="text-2xl font-bold">{challenge.finalPrompt}</p>
+                <p className="text-[10px] font-black uppercase tracking-widest opacity-60 mb-2">{t.targetMission}</p>
+                <p className="text-2xl font-bold">{translatedFinalPrompt || challenge.finalPrompt}</p>
               </div>
               <div className="flex items-center justify-center gap-3 text-2xl font-black">
                 <Timer size={32} />
@@ -217,7 +266,7 @@ const ChallengeFlow: React.FC<ChallengeFlowProps> = ({ challenge, myId, socket, 
             </div>
             
             <div className="space-y-4">
-              <p className="text-slate-500 font-medium">First one to send proof wins 150 points!</p>
+              <p className="text-slate-500 font-medium">{t.firstToProof}</p>
               <label className="block w-full cursor-pointer">
                 <input 
                   type="file" 
@@ -228,14 +277,14 @@ const ChallengeFlow: React.FC<ChallengeFlowProps> = ({ challenge, myId, socket, 
                 />
                 <div className="w-full bg-slate-900 text-white py-6 rounded-[2rem] font-black text-xl flex items-center justify-center gap-3 hover:scale-[1.02] active:scale-95 transition-all shadow-xl">
                   <Camera size={28} />
-                  SEND SELFIE PROOF
+                  {t.sendProof}
                 </div>
               </label>
             </div>
           </div>
         );
 
-      case 'completed':
+      case 'completed': {
         const iWon = challenge.winnerId === myId;
         return (
           <div className="space-y-8 text-center py-6">
@@ -244,10 +293,10 @@ const ChallengeFlow: React.FC<ChallengeFlowProps> = ({ challenge, myId, socket, 
             </div>
             <div>
               <h3 className="text-3xl font-black uppercase italic tracking-tighter mb-1">
-                {iWon ? "VICTORY!" : "DEFEAT"}
+                {iWon ? t.victory : t.defeat}
               </h3>
               <p className="text-slate-500 font-bold">
-                {iWon ? "+150 Points Earned" : "+20 Points Earned"}
+                {iWon ? `+150 ${t.points} Earned` : `+20 ${t.points} Earned`}
               </p>
             </div>
 
@@ -273,10 +322,11 @@ const ChallengeFlow: React.FC<ChallengeFlowProps> = ({ challenge, myId, socket, 
               onClick={onClose}
               className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black uppercase tracking-widest hover:bg-slate-800 transition-colors"
             >
-              Back to Circle
+              {t.backToCircle}
             </button>
           </div>
         );
+      }
 
       case 'expired':
         return (
@@ -285,15 +335,15 @@ const ChallengeFlow: React.FC<ChallengeFlowProps> = ({ challenge, myId, socket, 
               <X size={48} />
             </div>
             <div>
-              <h3 className="text-3xl font-black uppercase italic tracking-tighter mb-2">TIME EXPIRED</h3>
-              <p className="text-slate-500 font-bold">Both players failed to complete the mission.</p>
-              <p className="text-rose-500 font-black mt-2">+1 Point for effort</p>
+              <h3 className="text-3xl font-black uppercase italic tracking-tighter mb-2">{t.timeExpired}</h3>
+              <p className="text-slate-500 font-bold">{t.bothFailed}</p>
+              <p className="text-rose-500 font-black mt-2">+1 {t.points} for effort</p>
             </div>
             <button 
               onClick={onClose}
               className="px-12 py-4 bg-slate-900 text-white rounded-2xl font-black uppercase tracking-widest"
             >
-              Close
+              {t.done}
             </button>
           </div>
         );
@@ -311,7 +361,7 @@ const ChallengeFlow: React.FC<ChallengeFlowProps> = ({ challenge, myId, socket, 
           className="bg-indigo-600 text-white px-6 py-3 rounded-full font-black shadow-2xl flex items-center gap-2 hover:scale-105 transition-all border-2 border-white/20"
         >
           <Sword size={18} className="animate-pulse" />
-          <span className="text-xs uppercase tracking-widest">Duel Active</span>
+          <span className="text-xs uppercase tracking-widest">{t.duelActive}</span>
           <Maximize2 size={14} />
         </button>
       </div>

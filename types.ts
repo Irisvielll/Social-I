@@ -25,6 +25,22 @@ export interface Suggestion {
   timestamp: number;
 }
 
+export interface ProfileDesign {
+  id: string;
+  name: string;
+  author: string;
+  price: number;
+  minLevel: number;
+  previewUrl?: string;
+  style: {
+    bg: string;
+    border: string;
+    accent: string;
+    text: string;
+    cardBg: string;
+  };
+}
+
 export interface UserStats {
   points: number;
   level: number;
@@ -36,7 +52,13 @@ export interface UserStats {
   history: ChallengeResult[];
   aiName?: string;
   isAiNamed?: boolean;
+  userName?: string;
   language?: string;
+  profilePic?: string;
+  unlockedDesigns?: string[];
+  customDesigns?: ProfileDesign[];
+  activeDesignId?: string;
+  rank?: string;
 }
 
 export interface ChallengeResult {

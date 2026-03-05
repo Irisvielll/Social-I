@@ -16,6 +16,21 @@ const TicTacToe: React.FC<TicTacToeProps> = ({ onWin, myId, opponentId, socket, 
   const [turn, setTurn] = useState(isMyTurn);
   const [isAiThinking, setIsAiThinking] = useState(false);
 
+  const checkWinner = (squares: (string | null)[]) => {
+    const lines = [
+      [0, 1, 2], [3, 4, 5], [6, 7, 8],
+      [0, 3, 6], [1, 4, 7], [2, 5, 8],
+      [0, 4, 8], [2, 4, 6]
+    ];
+    for (let i = 0; i < lines.length; i++) {
+      const [a, b, c] = lines[i];
+      if (squares[a] && squares[a] === squares[b] && squares[a] === squares[c]) {
+        return squares[a];
+      }
+    }
+    return null;
+  };
+
   useEffect(() => {
     if (!socket) return;
     socket.on("tictactoe_update", (data: any) => {
@@ -35,8 +50,8 @@ const TicTacToe: React.FC<TicTacToeProps> = ({ onWin, myId, opponentId, socket, 
   // AI Move Logic
   useEffect(() => {
     if (opponentId === 'ai-friend' && !turn && !checkWinner(board)) {
-      setIsAiThinking(true);
-      const timer = setTimeout(() => {
+      const thinkingTimer = setTimeout(() => setIsAiThinking(true), 0);
+      const moveTimer = setTimeout(() => {
         const emptyIndices = board.map((s, i) => s === null ? i : null).filter(i => i !== null) as number[];
         if (emptyIndices.length > 0) {
           const randomIndex = emptyIndices[Math.floor(Math.random() * emptyIndices.length)];
@@ -52,24 +67,12 @@ const TicTacToe: React.FC<TicTacToeProps> = ({ onWin, myId, opponentId, socket, 
           }
         }
       }, 1500);
-      return () => clearTimeout(timer);
+      return () => {
+        clearTimeout(thinkingTimer);
+        clearTimeout(moveTimer);
+      };
     }
   }, [turn, board, opponentId, isMyTurn, onWin]);
-
-  const checkWinner = (squares: (string | null)[]) => {
-    const lines = [
-      [0, 1, 2], [3, 4, 5], [6, 7, 8],
-      [0, 3, 6], [1, 4, 7], [2, 5, 8],
-      [0, 4, 8], [2, 4, 6]
-    ];
-    for (let i = 0; i < lines.length; i++) {
-      const [a, b, c] = lines[i];
-      if (squares[a] && squares[a] === squares[b] && squares[a] === squares[c]) {
-        return squares[a];
-      }
-    }
-    return null;
-  };
 
   const handleClick = (i: number) => {
     if (!turn || board[i] || checkWinner(board) || isAiThinking) return;

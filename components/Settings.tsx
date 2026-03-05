@@ -2,29 +2,26 @@
 import React, { useState } from 'react';
 import { Moon, Sun, CreditCard, ShieldCheck, Heart, Zap, UserMinus, Plus, Smartphone, Wallet, Languages, Play } from 'lucide-react';
 import { UserStats } from '../types';
+import { Language, TRANSLATIONS } from '../translations';
 
 interface SettingsProps {
   stats: UserStats;
   setStats: React.Dispatch<React.SetStateAction<UserStats>>;
+  changeLanguage: (lang: Language) => void;
 }
 
-const LANGUAGES = [
+const LANGUAGES: { name: Language; native: string }[] = [
   { name: "English", native: "English" },
   { name: "Spanish", native: "Español" },
   { name: "French", native: "Français" },
   { name: "German", native: "Deutsch" },
-  { name: "Italian", native: "Italiano" },
-  { name: "Portuguese", native: "Português" },
-  { name: "Russian", native: "Русский" },
   { name: "Chinese", native: "中文" },
   { name: "Japanese", native: "日本語" },
-  { name: "Korean", native: "한국어" },
-  { name: "Tagalog", native: "Tagalog" },
-  { name: "Hindi", native: "हिन्दी" },
-  { name: "Arabic", native: "العربية" }
+  { name: "Korean", native: "한국어" }
 ];
 
-const Settings: React.FC<SettingsProps> = ({ stats, setStats }) => {
+const Settings: React.FC<SettingsProps> = ({ stats, setStats, changeLanguage }) => {
+  const t = TRANSLATIONS[stats.language as Language] || TRANSLATIONS.English;
   const [paymentSuccess, setPaymentSuccess] = useState("");
   const [isPurchasing, setIsPurchasing] = useState<string | null>(null);
   const [showAddCard, setShowAddCard] = useState(false);
@@ -76,10 +73,10 @@ const Settings: React.FC<SettingsProps> = ({ stats, setStats }) => {
       <section className="bg-white dark:bg-slate-800 rounded-3xl p-6 shadow-sm border border-slate-100 dark:border-slate-700">
         <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
           {stats.isDarkMode ? <Moon size={20} /> : <Sun size={20} />}
-          Appearance
+          {t.appearance}
         </h2>
         <div className="flex items-center justify-between">
-          <span>Dark Mode</span>
+          <span>{stats.isDarkMode ? t.darkMode : t.lightMode}</span>
           <button
             onClick={() => setStats(prev => ({ ...prev, isDarkMode: !prev.isDarkMode }))}
             className={`w-12 h-6 rounded-full transition-colors relative ${stats.isDarkMode ? 'bg-indigo-600' : 'bg-slate-200'}`}
@@ -92,13 +89,13 @@ const Settings: React.FC<SettingsProps> = ({ stats, setStats }) => {
       <section className="bg-white dark:bg-slate-800 rounded-3xl p-6 shadow-sm border border-slate-100 dark:border-slate-700">
         <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
           <Languages size={20} />
-          Language
+          {t.language}
         </h2>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
           {LANGUAGES.map(lang => (
             <button
               key={lang.name}
-              onClick={() => setStats(prev => ({ ...prev, language: lang.name }))}
+              onClick={() => changeLanguage(lang.name)}
               className={`px-4 py-2 rounded-xl text-sm font-bold transition-all border ${
                 stats.language === lang.name 
                 ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg shadow-indigo-200 dark:shadow-none' 
@@ -135,8 +132,8 @@ const Settings: React.FC<SettingsProps> = ({ stats, setStats }) => {
               <Heart className="text-rose-500 fill-rose-500" size={24} />
               <span className="font-bold text-indigo-600">$0.99</span>
             </div>
-            <h4 className="font-bold">Refill Hearts</h4>
-            <p className="text-xs text-slate-500 text-justify">Get 3 hearts to keep skipping safely.</p>
+            <h4 className="font-bold">{t.refillHearts}</h4>
+            <p className="text-xs text-slate-500 text-justify">{t.getHeartsDesc}</p>
           </button>
 
           <button 
@@ -149,8 +146,8 @@ const Settings: React.FC<SettingsProps> = ({ stats, setStats }) => {
               <Zap className="text-amber-500 fill-amber-500" size={24} />
               <span className="font-bold text-indigo-600">$9.99</span>
             </div>
-            <h4 className="font-bold">Pro Mode</h4>
-            <p className="text-xs text-slate-500 text-justify">Unlimited hearts & custom sidequests.</p>
+            <h4 className="font-bold">{t.proMode}</h4>
+            <p className="text-xs text-slate-500 text-justify">{t.readyToLevelUp}</p>
           </button>
 
           <button 
@@ -163,9 +160,9 @@ const Settings: React.FC<SettingsProps> = ({ stats, setStats }) => {
               <UserMinus className="text-slate-400" size={24} />
               <span className="font-bold text-indigo-600">$0.67</span>
             </div>
-            <h4 className="font-bold">Unfriend (Quick)</h4>
-            <p className="text-xs text-slate-500 text-justify">Skip the mission and unfriend instantly.</p>
-            <p className="text-[10px] text-rose-500 mt-1 font-bold text-justify">OR: Do a mission to unfriend for free!</p>
+            <h4 className="font-bold">{t.unfriendFee}</h4>
+            <p className="text-xs text-slate-500 text-justify">{t.unfriendDesc}</p>
+            <p className="text-[10px] text-rose-500 mt-1 font-bold text-justify">{t.unfriendOrMission}</p>
           </button>
 
           <button 
@@ -178,9 +175,9 @@ const Settings: React.FC<SettingsProps> = ({ stats, setStats }) => {
               <Play className="text-emerald-500 fill-emerald-500" size={24} />
               <span className="font-bold text-emerald-600">FREE</span>
             </div>
-            <h4 className="font-bold">Watch Ad</h4>
-            <p className="text-xs text-slate-500 text-justify">Watch a short video to refill 1 heart.</p>
-            {stats.hearts >= 3 && <p className="text-[10px] text-emerald-600 mt-1 font-bold">Hearts Full!</p>}
+            <h4 className="font-bold">{t.refillFree}</h4>
+            <p className="text-xs text-slate-500 text-justify">{t.watchAdDesc}</p>
+            {stats.hearts >= 3 && <p className="text-[10px] text-emerald-600 mt-1 font-bold">{t.heartsFull}</p>}
           </button>
         </div>
       </section>
@@ -201,11 +198,19 @@ const Settings: React.FC<SettingsProps> = ({ stats, setStats }) => {
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            <button className="flex items-center justify-center gap-2 p-3 border border-slate-100 dark:border-slate-700 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
+            <button 
+              onClick={() => handlePurchase("Apple Pay Setup", 0, () => alert("Apple Pay linked!"))}
+              className="flex items-center justify-center gap-2 p-3 border border-slate-100 dark:border-slate-700 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors relative overflow-hidden"
+            >
+              {isPurchasing === "Apple Pay Setup" && <div className="absolute inset-0 bg-white/80 dark:bg-slate-800/80 flex items-center justify-center z-10"><div className="w-4 h-4 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" /></div>}
               <Smartphone size={18} className="text-slate-900 dark:text-white" />
               <span className="text-sm font-bold">Apple Pay</span>
             </button>
-            <button className="flex items-center justify-center gap-2 p-3 border border-slate-100 dark:border-slate-700 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
+            <button 
+              onClick={() => handlePurchase("GCash Link", 0, () => alert("GCash linked!"))}
+              className="flex items-center justify-center gap-2 p-3 border border-slate-100 dark:border-slate-700 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors relative overflow-hidden"
+            >
+              {isPurchasing === "GCash Link" && <div className="absolute inset-0 bg-white/80 dark:bg-slate-800/80 flex items-center justify-center z-10"><div className="w-4 h-4 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" /></div>}
               <Wallet size={18} className="text-blue-500" />
               <span className="text-sm font-bold">GCash</span>
             </button>
@@ -250,7 +255,7 @@ const Settings: React.FC<SettingsProps> = ({ stats, setStats }) => {
       </section>
       
       <div className="text-center text-[10px] text-slate-400">
-        All payments are processed securely. Contact admin@introvertup.com for support.
+        {t.allPaymentsSecure} Contact admin@introvertup.com for support.
       </div>
     </div>
   );

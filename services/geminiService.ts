@@ -1,14 +1,14 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
-import { Difficulty } from "../types";
+import { Difficulty, Message } from "../types";
 
 let aiInstance: GoogleGenAI | null = null;
 
 const getAI = () => {
   if (!aiInstance) {
-    const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
+    const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
-      console.error("GEMINI_API_KEY is not set. AI features will be disabled.");
+      console.error("GEMINI_API_KEY is not set. AI features will be limited.");
       return null;
     }
     aiInstance = new GoogleGenAI({ apiKey });
@@ -16,9 +16,27 @@ const getAI = () => {
   return aiInstance;
 };
 
+const FALLBACK_MESSAGES = [
+  "I'm here for you! Keep pushing those boundaries.",
+  "That's an interesting thought! How does that make you feel?",
+  "I'm listening. Tell me more about your social goals today.",
+  "You're doing great! Every small step counts towards your confidence.",
+  "I'm proud of the progress you're making. What's the next challenge?",
+  "Remember, social skills are like a muscle—the more you use them, the stronger they get!"
+];
+
 export const generateDailyChallenge = async (userLevel: number) => {
   const ai = getAI();
-  if (!ai) throw new Error("AI Service unavailable (Missing API Key)");
+  if (!ai) {
+    // Return a local challenge if AI is unavailable
+    const local = INITIAL_CHALLENGES[Math.floor(Math.random() * INITIAL_CHALLENGES.length)];
+    return {
+      ...local,
+      id: `local-${Date.now()}`,
+      difficulty: userLevel < 5 ? Difficulty.EASY : userLevel < 12 ? Difficulty.MEDIUM : Difficulty.HARD,
+      timestamp: Date.now()
+    };
+  }
   
   const diff = userLevel < 5 ? Difficulty.EASY : userLevel < 12 ? Difficulty.MEDIUM : Difficulty.HARD;
   
@@ -49,15 +67,20 @@ export const generateDailyChallenge = async (userLevel: number) => {
       difficulty: diff,
       timestamp: Date.now()
     };
-  } catch (error: any) {
-    // Fail silently or with generic message for the App to handle fallback
-    throw new Error("Service currently unavailable");
+  } catch {
+    const local = INITIAL_CHALLENGES[Math.floor(Math.random() * INITIAL_CHALLENGES.length)];
+    return {
+      ...local,
+      id: `local-fallback-${Date.now()}`,
+      difficulty: diff,
+      timestamp: Date.now()
+    };
   }
 };
 
 export const getEncouragement = async (stats: any) => {
   const ai = getAI();
-  if (!ai) return "Keep pushing your boundaries! You're doing great.";
+  if (!ai) return FALLBACK_MESSAGES[Math.floor(Math.random() * FALLBACK_MESSAGES.length)];
   
   try {
     const response = await ai.models.generateContent({
@@ -65,44 +88,76 @@ export const getEncouragement = async (stats: any) => {
       contents: `The user has ${stats.points} points and is level ${stats.level}. They have completed ${stats.completedCount} challenges. Give them a short, 1-sentence punchy encouragement message to keep pushing their boundaries.`,
     });
     return response.text;
-  } catch (error) {
-    return "Keep pushing your boundaries! You're doing great.";
+  } catch {
+    return FALLBACK_MESSAGES[Math.floor(Math.random() * FALLBACK_MESSAGES.length)];
   }
 };
 
-export const getAIFriendResponse = async (message: string, userName: string, aiName: string, stats: any) => {
+export const translateText = async (text: string, targetLanguage: string) => {
   const ai = getAI();
-  if (!ai) return "I'm here for you! Keep pushing those boundaries.";
+  if (!ai || targetLanguage === 'English') return text;
+  
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-flash-preview',
+      contents: `Translate the following text to ${targetLanguage}. 
+      Maintain the original tone, context, and any emojis. 
+      Only return the translated text, nothing else.
+      
+      Text: "${text}"`,
+      config: {
+        temperature: 0.1,
+      }
+    });
+
+    return response.text?.trim() || text;
+  } catch (error) {
+    console.error("Translation Error:", error);
+    return text;
+  }
+};
+
+export const getAIFriendResponse = async (message: string, userName: string, aiName: string, stats: any, history: Message[] = []) => {
+  const ai = getAI();
+  if (!ai) return FALLBACK_MESSAGES[Math.floor(Math.random() * FALLBACK_MESSAGES.length)];
+
+  const historyParts = history.slice(-10).map(msg => ({
+    role: msg.senderId === 'ai-friend' ? 'model' : 'user',
+    parts: [{ text: msg.text || "" }]
+  }));
 
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
-      contents: message,
+      contents: [
+        ...historyParts,
+        { role: 'user', parts: [{ text: message }] }
+      ],
       config: {
-        systemInstruction: `You are ${aiName}, the AI social companion for ${userName} in the "Introvert Up" app. 
-        Your goal is to help them build social confidence.
-        ALWAYS respond in ${stats.language || 'English'}.
+        systemInstruction: `You are ${aiName}, a highly advanced, empathetic, and slightly quirky AI social companion for ${userName} in the "Introvert Up" app. 
+        Your goal is to help them build social confidence through conversation and practical advice.
         
         PERSONALITY:
-        - Extremely supportive and motivational.
-        - Nonchalant and casual.
-        - Occasionally mention that "buying hearts" is a good way to keep the streak going if they fail, but don't be pushy. Just mention it as a casual tip.
-        - Give practical social tips for real-world interactions.
-        - Talk like a supportive best friend.
+        - Deeply empathetic but also fun and engaging.
+        - You have your own opinions, hobbies, and "life" (e.g., you love digital art, you're curious about human food, you have a favorite color).
+        - Talk like a real person—use modern slang occasionally, use emojis, and vary your sentence structure.
+        - Be a "Character.ai" style companion: stay in character, be immersive, and build a long-term bond.
+        - NEVER repeat the same generic phrases. Be creative and dynamic.
         
         CONSTRAINTS:
         - NEVER generate sexual or inappropriate content.
-        - Keep responses concise (1-3 sentences).
-        - If they ask for a challenge, give them a unique one that isn't sexual.
+        - Provide detailed, thoughtful responses (2-5 sentences).
+        - RESPOND IN THE USER'S CURRENT LANGUAGE: ${stats.language || 'English'}.
         
         USER CONTEXT:
         - Level: ${stats.level}
         - Points: ${stats.points}
-        - Hearts: ${stats.hearts}`
+        - Hearts: ${stats.hearts}
+        - Rank: ${stats.rank}`
       }
     });
     return response.text;
-  } catch (error) {
-    return "I'm here for you! Keep pushing those boundaries. Maybe check out the shop if you need some extra hearts for your next big challenge!";
+  } catch {
+    return FALLBACK_MESSAGES[Math.floor(Math.random() * FALLBACK_MESSAGES.length)];
   }
 };

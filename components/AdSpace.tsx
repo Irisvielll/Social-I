@@ -25,7 +25,7 @@ const AdSpace: React.FC = () => {
         <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest">Sponsored</span>
         <div className="flex-1 overflow-hidden">
           <div className="animate-marquee whitespace-nowrap text-sm text-indigo-700 font-medium">
-            {ads.map((ad, i) => (
+            {ads.map(ad => (
               <a 
                 key={ad.id} 
                 href={ad.link} 
