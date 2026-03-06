@@ -1,6 +1,6 @@
 
 import React, { useState, useRef } from 'react';
-import { Camera, User, Edit3, Globe, Instagram, Share2, Award, Star, Zap } from 'lucide-react';
+import { Camera, User, Edit3, Globe, Instagram, Share2, Award, Star, Zap, Shield, Heart } from 'lucide-react';
 import { UserStats } from '../types';
 import { DEFAULT_DESIGNS } from '../constants';
 import { motion } from 'framer-motion';
@@ -224,7 +224,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ stats, setStats }) => {
           { label: "Victories", value: stats.completedCount, icon: Shield, color: "text-emerald-500", bg: "bg-emerald-500/10" },
           { label: "Current Streak", value: stats.streak, icon: Zap, color: "text-amber-500", bg: "bg-amber-500/10" },
           { label: "Trainer Level", value: stats.level, icon: Star, color: "text-indigo-500", bg: "bg-indigo-500/10" },
-          { label: "Hearts Left", value: stats.hearts, icon: Star, color: "text-rose-500", bg: "bg-rose-500/10" },
+          { label: "Hearts Left", value: stats.hearts, icon: Heart, color: "text-rose-500", bg: "bg-rose-500/10" },
         ].map((stat, i) => (
           <motion.div 
             key={i} 
