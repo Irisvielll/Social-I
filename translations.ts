@@ -7,7 +7,7 @@ export const TRANSLATIONS: Record<Language, any> = {
     yourName: "Your Name",
     aiCompanionName: "AI Companion Name",
     deviceType: "Device Type",
-    selectDevice: "Are you on PC or Mobile?",
+    selectDevice: "Select your device layout",
     mobile: "Mobile",
     pc: "PC",
     startJourney: "Start Journey",
@@ -87,7 +87,6 @@ export const TRANSLATIONS: Record<Language, any> = {
     layoutMode: "Layout Mode",
     portrait: "Portrait",
     landscape: "Landscape",
-    popup: "Pop-up",
     tablet: "Tablet",
     selectLayout: "Select your preferred layout"
   },

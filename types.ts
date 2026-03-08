@@ -62,7 +62,7 @@ export interface UserStats {
   rank?: string;
   hasUnlockedDesigner?: boolean;
   deviceType?: 'mobile' | 'pc';
-  layoutMode?: 'portrait' | 'landscape' | 'popup';
+  layoutMode?: 'portrait' | 'landscape';
 }
 
 export interface ChallengeResult {

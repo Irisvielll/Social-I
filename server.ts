@@ -6,6 +6,11 @@ import { createServer as createViteServer } from "vite";
 import path from "path";
 import helmet from "helmet";
 import { rateLimit } from "express-rate-limit";
+import Stripe from "stripe";
+
+const stripe = process.env.STRIPE_SECRET_KEY 
+  ? new Stripe(process.env.STRIPE_SECRET_KEY) 
+  : null;
 
 import { OWNER_CONFIG } from "./src/config/adminConfig";
 
@@ -84,6 +89,40 @@ async function startServer() {
     };
     state.payments.push(payment);
     res.json({ success: true, message: "Payment received! Thank you." });
+  });
+
+  app.post("/api/create-checkout-session", async (req, res) => {
+    if (!stripe) {
+      return res.status(500).json({ error: "Stripe is not configured" });
+    }
+
+    const { amount, name, description } = req.body;
+
+    try {
+      const session = await stripe.checkout.sessions.create({
+        payment_method_types: ['card'],
+        line_items: [
+          {
+            price_data: {
+              currency: 'usd',
+              product_data: {
+                name: name || 'Social-I Purchase',
+                description: description || 'In-app purchase',
+              },
+              unit_amount: Math.round(amount * 100), // Stripe expects amount in cents
+            },
+            quantity: 1,
+          },
+        ],
+        mode: 'payment',
+        success_url: `${req.headers.origin}/?success=true`,
+        cancel_url: `${req.headers.origin}/?canceled=true`,
+      });
+
+      res.json({ id: session.id, url: session.url });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
   });
 
   // Socket.io Logic

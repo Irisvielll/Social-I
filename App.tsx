@@ -194,6 +194,18 @@ const App: React.FC = () => {
   }, [stats]);
 
   useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('success')) {
+      alert("Payment successful! Your purchase has been applied.");
+      // In a real app, you'd verify the session on the server here
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } else if (urlParams.get('canceled')) {
+      alert("Payment canceled.");
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, []);
+
+  useEffect(() => {
     localStorage.setItem('introvert_up_suggestions', JSON.stringify(suggestions));
   }, [suggestions]);
 
@@ -355,7 +367,7 @@ const App: React.FC = () => {
     setSuggestions(prev => prev.map(s => s.id === id ? { ...s, votes: s.votes + 1 } : s));
   };
 
-  const handleOnboarding = (aiName: string, userName: string, deviceType: 'mobile' | 'pc', layoutMode: 'portrait' | 'landscape' | 'popup') => {
+  const handleOnboarding = (aiName: string, userName: string, deviceType: 'mobile' | 'pc', layoutMode: 'portrait' | 'landscape') => {
     setStats(prev => ({ ...prev, aiName, userName, isAiNamed: true, deviceType, layoutMode }));
   };
 
@@ -449,7 +461,7 @@ const App: React.FC = () => {
                 <button 
                   id="device-mobile"
                   onClick={() => {
-                    ['device-mobile', 'device-tablet', 'device-pc'].forEach(id => {
+                    ['device-mobile', 'device-tablet'].forEach(id => {
                       document.getElementById(id)?.classList.remove('bg-indigo-600', 'text-white', 'border-indigo-500');
                       document.getElementById(id)?.classList.add('bg-[#1a1a1a]', 'text-slate-400', 'border-white/5');
                     });
@@ -466,7 +478,7 @@ const App: React.FC = () => {
                 <button 
                   id="device-tablet"
                   onClick={() => {
-                    ['device-mobile', 'device-tablet', 'device-pc'].forEach(id => {
+                    ['device-mobile', 'device-tablet'].forEach(id => {
                       document.getElementById(id)?.classList.remove('bg-indigo-600', 'text-white', 'border-indigo-500');
                       document.getElementById(id)?.classList.add('bg-[#1a1a1a]', 'text-slate-400', 'border-white/5');
                     });
@@ -479,23 +491,6 @@ const App: React.FC = () => {
                 >
                   <Monitor size={18} className="rotate-90" />
                   {t.tablet} / {t.landscape}
-                </button>
-                <button 
-                  id="device-pc"
-                  onClick={() => {
-                    ['device-mobile', 'device-tablet', 'device-pc'].forEach(id => {
-                      document.getElementById(id)?.classList.remove('bg-indigo-600', 'text-white', 'border-indigo-500');
-                      document.getElementById(id)?.classList.add('bg-[#1a1a1a]', 'text-slate-400', 'border-white/5');
-                    });
-                    document.getElementById('device-pc')?.classList.add('bg-indigo-600', 'text-white', 'border-indigo-500');
-                    document.getElementById('device-pc')?.classList.remove('bg-[#1a1a1a]', 'text-slate-400', 'border-white/5');
-                    (window as any).selectedDevice = 'pc';
-                    (window as any).selectedLayout = 'popup';
-                  }}
-                  className="py-4 bg-[#1a1a1a] text-slate-400 rounded-2xl font-bold uppercase tracking-widest border border-white/5 transition-all flex items-center justify-center gap-3"
-                >
-                  <Monitor size={18} />
-                  {t.pc} {t.popup}
                 </button>
               </div>
             </div>
@@ -526,8 +521,8 @@ const App: React.FC = () => {
   }
 
   return (
-    <div className={`min-h-screen transition-all duration-500 ${stats.isDarkMode ? 'dark bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-900'} ${stats.layoutMode === 'popup' ? 'md:flex md:items-center md:justify-center md:p-12 bg-indigo-950/20' : ''}`}>
-      <div className={`transition-all duration-700 ${stats.layoutMode === 'popup' ? 'w-full md:max-w-5xl md:h-[90vh] bg-white dark:bg-slate-900 md:rounded-[3rem] md:shadow-[0_50px_100px_-20px_rgba(0,0,0,0.5)] md:border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col relative' : 'w-full min-h-screen flex flex-col'}`}>
+    <div className={`min-h-screen transition-all duration-500 ${stats.isDarkMode ? 'dark bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-900'}`}>
+      <div className="w-full min-h-screen flex flex-col">
         {/* PWA Install Prompt (Mobile Only) */}
       <AnimatePresence>
         {showInstallPrompt && (
@@ -1026,32 +1021,14 @@ const App: React.FC = () => {
       {view === 'settings' && <Settings stats={stats} setStats={setStats} changeLanguage={changeLanguage} />}
       <AnimatePresence>
         {view === 'profile' && (
-          stats.layoutMode === 'popup' ? (
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md"
-            >
-              <motion.div 
-                initial={{ scale: 0.9, y: 20 }}
-                animate={{ scale: 1, y: 0 }}
-                exit={{ scale: 0.9, y: 20 }}
-                className="w-full max-w-5xl max-h-[90vh] overflow-y-auto bg-white dark:bg-slate-900 rounded-[3rem] shadow-2xl border border-white/10"
-              >
-                <AdminDashboard stats={stats} setStats={setStats} onClose={() => setView('home')} />
-              </motion.div>
-            </motion.div>
-          ) : (
-            <motion.div
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: 20 }}
-              className="flex-1 overflow-y-auto"
-            >
-              <AdminDashboard stats={stats} setStats={setStats} />
-            </motion.div>
-          )
+          <motion.div
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 20 }}
+            className="flex-1 overflow-y-auto"
+          >
+            <AdminDashboard stats={stats} setStats={setStats} />
+          </motion.div>
         )}
       </AnimatePresence>
       {view === 'shop' && <Shop stats={stats} setStats={setStats} setView={setView} />}
@@ -1072,9 +1049,9 @@ const App: React.FC = () => {
       )}
 
       {/* Bottom Nav & Ads Container */}
-      <div className={stats.layoutMode === 'popup' ? 'absolute bottom-0 left-0 right-0 z-40' : 'fixed bottom-0 left-0 right-0 z-40'}>
+      <div className="fixed bottom-0 left-0 right-0 z-40">
         {/* Bottom Nav */}
-        <nav className={`bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl border-t border-slate-200 dark:border-slate-800 px-6 py-4 ${stats.layoutMode === 'portrait' ? 'max-w-2xl' : 'max-w-6xl'} mx-auto rounded-t-[2.5rem] shadow-[0_-15px_40px_-20px_rgba(0,0,0,0.15)] mb-0 ${stats.layoutMode === 'popup' ? 'rounded-b-[3rem]' : ''}`}>
+        <nav className={`bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl border-t border-slate-200 dark:border-slate-800 px-6 py-4 ${stats.layoutMode === 'portrait' ? 'max-w-2xl' : 'max-w-6xl'} mx-auto rounded-t-[2.5rem] shadow-[0_-15px_40px_-20px_rgba(0,0,0,0.15)] mb-0`}>
           <div className="flex justify-around items-center">
             <button 
               onClick={() => setView('home')}
@@ -1115,7 +1092,7 @@ const App: React.FC = () => {
         </nav>
         
         {/* AdSpace is now below Nav */}
-        <div className={`relative z-50 ${stats.layoutMode === 'popup' ? 'hidden' : ''}`}>
+        <div className="relative z-50">
           <AdSpace />
         </div>
       </div>

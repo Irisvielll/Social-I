@@ -58,28 +58,34 @@ const Settings: React.FC<SettingsProps> = ({ stats, setStats, changeLanguage }) 
     setTimeout(() => setPaymentSuccess(""), 3000);
   };
 
-  const handlePurchase = async (item: string, price: number, effect: () => void) => {
+  const handlePurchase = async (item: string, price: number) => {
     setIsPurchasing(item);
-    // Simulate network delay for payment processing
-    await new Promise(resolve => setTimeout(resolve, 1500));
-
-    const res = await fetch('/api/payments', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ 
-        item, 
-        price, 
-        userId: 'user-1',
-        method: 'Saved Card (**** 4455)'
-      })
-    });
     
-    if (res.ok) {
-      effect();
-      setPaymentSuccess(`Successfully purchased ${item}!`);
-      setTimeout(() => setPaymentSuccess(""), 3000);
+    try {
+      const response = await fetch('/api/create-checkout-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          amount: price, 
+          name: item,
+          description: `Purchase of ${item} for Social-I`
+        })
+      });
+
+      const session = await response.json();
+
+      if (session.url) {
+        // Redirect to Stripe Checkout
+        window.location.href = session.url;
+      } else {
+        throw new Error(session.error || 'Failed to create checkout session');
+      }
+    } catch (error: any) {
+      console.error('Payment error:', error);
+      alert(`Payment failed: ${error.message}`);
+    } finally {
+      setIsPurchasing(null);
     }
-    setIsPurchasing(null);
   };
 
   const addCard = () => {
@@ -164,21 +170,6 @@ const Settings: React.FC<SettingsProps> = ({ stats, setStats, changeLanguage }) 
             </div>
             {stats.layoutMode === 'landscape' && <Check size={16} />}
           </button>
-          
-          <button 
-            onClick={() => setStats(prev => ({ ...prev, layoutMode: 'popup', deviceType: 'pc' }))}
-            className={`flex items-center justify-between p-4 rounded-2xl border transition-all ${
-              stats.layoutMode === 'popup' 
-                ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg' 
-                : 'bg-slate-50 dark:bg-slate-900 text-slate-600 dark:text-slate-400 border-slate-100 dark:border-slate-800 hover:border-indigo-300'
-            }`}
-          >
-            <div className="flex items-center gap-3">
-              <Monitor size={18} />
-              <span className="font-bold">PC Pop-up</span>
-            </div>
-            {stats.layoutMode === 'popup' && <Check size={16} />}
-          </button>
         </div>
       </section>
 
@@ -197,7 +188,7 @@ const Settings: React.FC<SettingsProps> = ({ stats, setStats, changeLanguage }) 
         <div className={`grid grid-cols-1 ${stats.layoutMode === 'portrait' ? 'md:grid-cols-2' : 'sm:grid-cols-2 lg:grid-cols-3'} gap-4`}>
           <button 
             disabled={!!isPurchasing}
-            onClick={() => handlePurchase("3 Hearts", 0.99, () => setStats(prev => ({ ...prev, hearts: 3 })))}
+            onClick={() => handlePurchase("3 Hearts", 0.99)}
             className="p-4 border border-slate-100 dark:border-slate-700 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors text-left relative overflow-hidden"
           >
             {isPurchasing === "3 Hearts" && <div className="absolute inset-0 bg-white/80 dark:bg-slate-800/80 flex items-center justify-center z-10"><div className="w-5 h-5 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" /></div>}
@@ -211,7 +202,7 @@ const Settings: React.FC<SettingsProps> = ({ stats, setStats, changeLanguage }) 
 
           <button 
             disabled={!!isPurchasing}
-            onClick={() => handlePurchase("Pro Mode", 9.99, () => {})}
+            onClick={() => handlePurchase("Pro Mode", 9.99)}
             className="p-4 border border-indigo-100 bg-indigo-50/30 dark:bg-indigo-900/20 dark:border-indigo-900 rounded-2xl hover:bg-indigo-50 dark:hover:bg-indigo-900/40 transition-colors text-left relative overflow-hidden"
           >
             {isPurchasing === "Pro Mode" && <div className="absolute inset-0 bg-white/80 dark:bg-slate-800/80 flex items-center justify-center z-10"><div className="w-5 h-5 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" /></div>}
@@ -225,7 +216,7 @@ const Settings: React.FC<SettingsProps> = ({ stats, setStats, changeLanguage }) 
 
           <button 
             disabled={!!isPurchasing}
-            onClick={() => handlePurchase("Unfriend Fee", 0.67, () => {})}
+            onClick={() => handlePurchase("Unfriend Fee", 0.67)}
             className="p-4 border border-slate-100 dark:border-slate-800 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors text-left relative overflow-hidden"
           >
             {isPurchasing === "Unfriend Fee" && <div className="absolute inset-0 bg-white/80 dark:bg-slate-800/80 flex items-center justify-center z-10"><div className="w-5 h-5 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" /></div>}
@@ -240,10 +231,7 @@ const Settings: React.FC<SettingsProps> = ({ stats, setStats, changeLanguage }) 
 
           <button 
             disabled={!!isPurchasing}
-            onClick={() => handlePurchase("Custom Design Slot", 5.00, () => {
-              setStats(prev => ({ ...prev, hasUnlockedDesigner: true }));
-              alert("Custom Design Slot Unlocked! You can now create a new design in the Shop.");
-            })}
+            onClick={() => handlePurchase("Custom Design Slot", 5.00)}
             className="p-4 border border-indigo-100 bg-indigo-50/30 dark:bg-indigo-900/20 dark:border-indigo-900 rounded-2xl hover:bg-indigo-50 dark:hover:bg-indigo-900/40 transition-colors text-left relative overflow-hidden"
           >
             {isPurchasing === "Custom Design Slot" && <div className="absolute inset-0 bg-white/80 dark:bg-slate-800/80 flex items-center justify-center z-10"><div className="w-5 h-5 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" /></div>}
@@ -341,6 +329,29 @@ const Settings: React.FC<SettingsProps> = ({ stats, setStats, changeLanguage }) 
               Add Debit/Credit Card
             </button>
           )}
+        </div>
+      </section>
+
+      <section className="bg-white dark:bg-slate-800 rounded-3xl p-6 shadow-sm border border-slate-100 dark:border-slate-700">
+        <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
+          <ShoppingBag size={20} />
+          Market & Distribution
+        </h2>
+        <div className="space-y-4">
+          <div className="p-4 bg-indigo-50 dark:bg-indigo-900/20 rounded-2xl border border-indigo-100 dark:border-indigo-800">
+            <h4 className="font-bold text-indigo-900 dark:text-indigo-300 mb-1">PWA (Progressive Web App)</h4>
+            <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+              Your app is already PWA-ready. Users can "Add to Home Screen" to install it like a native app. 
+              To put it on the Google Play Store or Apple App Store, you can use tools like <b>PWABuilder</b> or <b>Capacitor</b>.
+            </p>
+          </div>
+          <div className="p-4 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-100 dark:border-slate-800">
+            <h4 className="font-bold mb-1">Custom Domain</h4>
+            <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+              To go live, point a custom domain (e.g., <code>social-i.com</code>) to your hosting provider. 
+              Ensure SSL is enabled for secure Stripe payments.
+            </p>
+          </div>
         </div>
       </section>
       
