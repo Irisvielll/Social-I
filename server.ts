@@ -4,6 +4,8 @@ import { createServer } from "http";
 import { Server } from "socket.io";
 import { createServer as createViteServer } from "vite";
 import path from "path";
+import helmet from "helmet";
+import { rateLimit } from "express-rate-limit";
 
 import { OWNER_CONFIG } from "./src/config/adminConfig";
 
@@ -18,7 +20,28 @@ async function startServer() {
 
   const PORT = 3000;
 
-  app.use(express.json());
+  // Trust proxy for express-rate-limit to work correctly behind nginx
+  app.set('trust proxy', 1);
+
+  // Security Middlewares
+  app.use(helmet({
+    contentSecurityPolicy: false, // Disable CSP for development convenience with Vite
+    crossOriginEmbedderPolicy: false
+  }));
+
+  const limiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    limit: 100, // Limit each IP to 100 requests per windowMs
+    standardHeaders: 'draft-7',
+    legacyHeaders: false,
+    keyGenerator: (req: any) => {
+      return req.headers['forwarded'] || req.headers['x-forwarded-for'] || req.ip;
+    },
+    message: "Too many requests from this IP, please try again later."
+  });
+
+  app.use("/api/", limiter);
+  app.use(express.json({ limit: '10kb' })); // Limit body size to prevent DoS
 
   // Mock Database
   const state = {
@@ -39,6 +62,9 @@ async function startServer() {
   });
 
   app.post("/api/admin/ads", (req, res) => {
+    if (!req.body || !Array.isArray(req.body.ads)) {
+      return res.status(400).json({ error: "Invalid input" });
+    }
     state.ads = req.body.ads;
     res.json({ success: true });
   });
@@ -48,6 +74,9 @@ async function startServer() {
   });
 
   app.post("/api/payments", (req, res) => {
+    if (!req.body || typeof req.body !== 'object') {
+      return res.status(400).json({ error: "Invalid input" });
+    }
     const payment = {
       ...req.body,
       id: Date.now(),
@@ -187,6 +216,17 @@ async function startServer() {
     socket.on("tictactoe_move", (data) => {
       // data: { toId, board, nextTurn }
       io.to(data.toId).emit("tictactoe_update", data);
+    });
+
+    socket.on("ai_broadcast", (data) => {
+      // data: { text, senderName }
+      const msg = { 
+        ...data, 
+        id: `ai-${Date.now()}`, 
+        timestamp: Date.now(),
+        isAi: true 
+      };
+      io.emit("receive_ai_broadcast", msg);
     });
 
     socket.on("disconnect", () => {

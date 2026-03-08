@@ -39,6 +39,7 @@ export interface ProfileDesign {
     text: string;
     cardBg: string;
   };
+  drawingData?: string;
 }
 
 export interface UserStats {
@@ -59,6 +60,9 @@ export interface UserStats {
   customDesigns?: ProfileDesign[];
   activeDesignId?: string;
   rank?: string;
+  hasUnlockedDesigner?: boolean;
+  deviceType?: 'mobile' | 'pc';
+  layoutMode?: 'portrait' | 'landscape' | 'popup';
 }
 
 export interface ChallengeResult {

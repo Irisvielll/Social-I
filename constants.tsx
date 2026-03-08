@@ -11,11 +11,11 @@ export const DEFAULT_DESIGNS: ProfileDesign[] = [
     price: 0,
     minLevel: 1,
     style: {
-      bg: 'bg-[#050505]',
-      border: 'border-white/5',
+      bg: '#050505',
+      border: 'rgba(255,255,255,0.05)',
       accent: 'bg-indigo-600',
       text: 'text-white',
-      cardBg: 'bg-[#1a1c23]'
+      cardBg: '#1a1c23'
     }
   },
   {
@@ -25,11 +25,11 @@ export const DEFAULT_DESIGNS: ProfileDesign[] = [
     price: 500,
     minLevel: 3,
     style: {
-      bg: 'bg-[#022c22]',
-      border: 'border-emerald-500/20',
+      bg: '#022c22',
+      border: 'rgba(16,185,129,0.2)',
       accent: 'bg-emerald-500',
       text: 'text-emerald-50',
-      cardBg: 'bg-[#064e3b]'
+      cardBg: '#064e3b'
     }
   },
   {
@@ -39,11 +39,11 @@ export const DEFAULT_DESIGNS: ProfileDesign[] = [
     price: 1200,
     minLevel: 5,
     style: {
-      bg: 'bg-[#451a03]',
-      border: 'border-orange-500/20',
+      bg: '#451a03',
+      border: 'rgba(249,115,22,0.2)',
       accent: 'bg-orange-500',
       text: 'text-orange-50',
-      cardBg: 'bg-[#78350f]'
+      cardBg: '#78350f'
     }
   },
   {
@@ -53,11 +53,53 @@ export const DEFAULT_DESIGNS: ProfileDesign[] = [
     price: 2500,
     minLevel: 10,
     style: {
-      bg: 'bg-[#0f172a]',
-      border: 'border-cyan-500/50',
+      bg: '#0f172a',
+      border: 'rgba(6,182,212,0.5)',
       accent: 'bg-cyan-500',
       text: 'text-cyan-50',
-      cardBg: 'bg-[#1e293b]'
+      cardBg: '#1e293b'
+    }
+  },
+  {
+    id: 'classic-retro',
+    name: 'Classic Retro',
+    author: 'System',
+    price: 3000,
+    minLevel: 12,
+    style: {
+      bg: '#f8fafc',
+      border: 'rgba(51,65,85,0.1)',
+      accent: 'bg-slate-800',
+      text: 'text-slate-900',
+      cardBg: '#ffffff'
+    }
+  },
+  {
+    id: 'nineties-pop',
+    name: "90's Pop",
+    author: 'System',
+    price: 3500,
+    minLevel: 15,
+    style: {
+      bg: '#fdf2f8',
+      border: 'rgba(219,39,119,0.2)',
+      accent: 'bg-pink-500',
+      text: 'text-pink-900',
+      cardBg: '#fce7f3'
+    }
+  },
+  {
+    id: 'futuristic-void',
+    name: 'Futuristic Void',
+    author: 'System',
+    price: 5000,
+    minLevel: 20,
+    style: {
+      bg: '#020617',
+      border: 'rgba(139,92,246,0.3)',
+      accent: 'bg-violet-600',
+      text: 'text-violet-100',
+      cardBg: '#0f172a'
     }
   }
 ];

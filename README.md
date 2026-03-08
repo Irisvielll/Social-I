@@ -1,4 +1,4 @@
-# 🚀 Introvert Up! - Getting Started
+# 🚀 Social-I - Getting Started
 
 Welcome to your new app! Here is how you get it running on your own computer.
 
@@ -12,7 +12,7 @@ Open your **Terminal** (Mac) or **Command Prompt** (Windows) and follow these st
 ### 1. Go to the folder
 Type `cd` followed by a space, then drag your project folder into the terminal window. It will look something like this:
 ```bash
-cd C:\Users\YourName\Downloads\introvert-up
+cd C:\Users\YourName\Downloads\social-i
 ```
 
 ### 2. Install the tools

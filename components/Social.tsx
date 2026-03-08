@@ -1,9 +1,10 @@
 
 import React, { useState, useMemo } from 'react';
-import { UserPlus, MessageSquare, Sword, Check, X, RefreshCw, Palette } from 'lucide-react';
+import { UserPlus, MessageSquare, Sword, Check, X, RefreshCw, Palette, Sparkles } from 'lucide-react';
 import { Friend, SocialChallenge, UserStats } from '../types';
 import { Language, TRANSLATIONS } from '../translations';
 import Chat from './Chat';
+import { getGlobalAIWisdom } from '../services/geminiService';
 
 interface SocialProps {
   stats: UserStats;
@@ -44,6 +45,23 @@ const Social: React.FC<SocialProps> = ({
   const [publicUsers] = useState<Friend[]>([]);
 
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isBroadcasting, setIsBroadcasting] = useState(false);
+
+  const broadcastAI = async () => {
+    if (isBroadcasting) return;
+    setIsBroadcasting(true);
+    try {
+      const wisdom = await getGlobalAIWisdom(stats.aiName || "SocialAI");
+      socket.emit("ai_broadcast", {
+        text: wisdom,
+        senderName: stats.aiName || "SocialAI"
+      });
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsBroadcasting(false);
+    }
+  };
 
   const refreshPublic = () => {
     setIsRefreshing(true);
@@ -71,8 +89,8 @@ const Social: React.FC<SocialProps> = ({
   };
 
   return (
-    <div className="max-w-6xl mx-auto p-4 md:p-6 grid grid-cols-1 lg:grid-cols-4 gap-6 md:gap-8 pb-32">
-      <div className={`lg:col-span-1 space-y-6 ${activeChat ? 'hidden lg:block' : 'block'}`}>
+    <div className={`${stats.layoutMode === 'portrait' ? 'max-w-2xl' : 'max-w-6xl'} mx-auto p-4 md:p-6 grid grid-cols-1 ${stats.layoutMode === 'portrait' ? '' : 'lg:grid-cols-4'} gap-6 md:gap-8 pb-32`}>
+      <div className={`${stats.layoutMode === 'portrait' ? '' : 'lg:col-span-1'} space-y-6 ${activeChat ? 'hidden lg:block' : 'block'}`}>
         <section className="bg-[#0f1115] rounded-[2rem] p-5 shadow-2xl border border-white/5 h-[500px] lg:h-[650px] flex flex-col overflow-hidden">
           <h2 className="text-white font-black text-lg mb-4 text-center tracking-tighter uppercase italic">{t.yourCircle}</h2>
           
@@ -156,6 +174,16 @@ const Social: React.FC<SocialProps> = ({
           </div>
           <div className="flex gap-4 overflow-x-auto pb-4 no-scrollbar snap-x">
             <div 
+              onClick={broadcastAI}
+              className={`min-w-[160px] bg-amber-600/10 border-2 border-dashed border-amber-500/30 p-6 rounded-3xl flex flex-col items-center text-center snap-center cursor-pointer hover:bg-amber-600/20 transition-all group ${isBroadcasting ? 'opacity-50 pointer-events-none' : ''}`}
+            >
+              <div className={`w-16 h-16 bg-amber-600 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-amber-500/20 mb-4 group-hover:scale-110 transition-transform ${isBroadcasting ? 'animate-pulse' : ''}`}>
+                <Sparkles size={32} />
+              </div>
+              <p className="text-sm font-black text-amber-400 mb-1 uppercase tracking-tighter italic">Global Shout</p>
+              <p className="text-[8px] text-amber-500/60 font-bold uppercase tracking-widest">{isBroadcasting ? 'Broadcasting...' : 'AI Wisdom'}</p>
+            </div>
+            <div 
               onClick={() => setView?.('designer')}
               className="min-w-[160px] bg-indigo-600/10 border-2 border-dashed border-indigo-500/30 p-6 rounded-3xl flex flex-col items-center text-center snap-center cursor-pointer hover:bg-indigo-600/20 transition-all group"
             >
@@ -179,7 +207,7 @@ const Social: React.FC<SocialProps> = ({
         </section>
       </div>
 
-      <div className={`lg:col-span-3 space-y-6 ${!activeChat ? 'hidden lg:block' : 'block'}`}>
+      <div className={`${stats.layoutMode === 'portrait' ? '' : 'lg:col-span-3'} space-y-6 ${!activeChat ? 'hidden lg:block' : 'block'}`}>
         {activeChat && (
           <button 
             onClick={() => setActiveChatId(null)}

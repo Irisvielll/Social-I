@@ -1,6 +1,6 @@
 
-import React, { useState } from 'react';
-import { Palette, Save } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { Palette, Save, Trash2, Pen, Highlighter, Wind } from 'lucide-react';
 import { UserStats, ProfileDesign } from '../types';
 
 interface CardDesignerProps {
@@ -17,8 +17,72 @@ const CardDesigner: React.FC<CardDesignerProps> = ({ stats, setStats }) => {
     text: '#ffffff',
     border: '#ffffff10'
   });
+  const [isDrawing, setIsDrawing] = useState(false);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [brushColor, setBrushColor] = useState('#ffffff');
+  const [brushSize, setBrushSize] = useState(5);
+  const [brushType, setBrushType] = useState<'pen' | 'marker' | 'spray'>('pen');
+
+  const startDrawing = (e: React.MouseEvent | React.TouchEvent) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const x = ('touches' in e) ? e.touches[0].clientX - rect.left : (e as React.MouseEvent).clientX - rect.left;
+    const y = ('touches' in e) ? e.touches[0].clientY - rect.top : (e as React.MouseEvent).clientY - rect.top;
+
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    setIsDrawing(true);
+  };
+
+  const draw = (e: React.MouseEvent | React.TouchEvent) => {
+    if (!isDrawing) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const x = ('touches' in e) ? e.touches[0].clientX - rect.left : (e as React.MouseEvent).clientX - rect.left;
+    const y = ('touches' in e) ? e.touches[0].clientY - rect.top : (e as React.MouseEvent).clientY - rect.top;
+
+    if (brushType === 'spray') {
+      ctx.fillStyle = brushColor;
+      for (let i = 0; i < 20; i++) {
+        const offset = brushSize * 2;
+        const offsetX = (Math.random() - 0.5) * offset;
+        const offsetY = (Math.random() - 0.5) * offset;
+        ctx.fillRect(x + offsetX, y + offsetY, 1, 1);
+      }
+    } else {
+      ctx.lineTo(x, y);
+      ctx.strokeStyle = brushColor;
+      ctx.lineWidth = brushSize;
+      ctx.lineCap = 'round';
+      ctx.globalAlpha = brushType === 'marker' ? 0.4 : 1.0;
+      ctx.stroke();
+    }
+  };
+
+  const stopDrawing = () => {
+    setIsDrawing(false);
+  };
+
+  const clearCanvas = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+  };
 
   const saveDesign = () => {
+    const canvas = canvasRef.current;
+    const drawingData = canvas ? canvas.toDataURL() : undefined;
+
     const newDesign: ProfileDesign = {
       id: `custom-${Date.now()}`,
       name: designName,
@@ -26,12 +90,13 @@ const CardDesigner: React.FC<CardDesignerProps> = ({ stats, setStats }) => {
       price: 0,
       minLevel: stats.level,
       style: {
-        bg: `bg-[${colors.bg}]`,
-        border: `border-[${colors.border}]`,
-        accent: `bg-[${colors.accent}]`,
-        text: `text-[${colors.text}]`,
-        cardBg: `bg-[${colors.cardBg}]`
-      }
+        bg: colors.bg,
+        border: colors.border,
+        accent: colors.accent,
+        text: colors.text,
+        cardBg: colors.cardBg
+      },
+      drawingData
     };
 
     // In a real app, we'd send this to a server. 
@@ -61,16 +126,40 @@ const CardDesigner: React.FC<CardDesignerProps> = ({ stats, setStats }) => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
         {/* Preview Area */}
         <div className="space-y-6">
-          <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-2">Live Preview</p>
+          <div className="flex justify-between items-end ml-2">
+            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Live Preview & Drawing Pad</p>
+            <div className="flex gap-2">
+              <button 
+                onClick={clearCanvas}
+                className="p-2 bg-rose-500/10 text-rose-500 rounded-lg hover:bg-rose-500/20 transition-colors"
+                title="Clear Drawing"
+              >
+                <Trash2 size={16} />
+              </button>
+            </div>
+          </div>
           <div 
             style={{ backgroundColor: colors.bg }}
-            className="rounded-[3rem] p-8 md:p-12 border border-white/5 min-h-[400px] flex items-center justify-center transition-colors duration-500"
+            className="rounded-[3rem] p-8 md:p-12 border border-white/5 min-h-[400px] flex items-center justify-center transition-colors duration-500 relative overflow-hidden"
           >
             <div 
               style={{ backgroundColor: colors.cardBg, borderColor: colors.border }}
-              className="w-full max-w-md rounded-[2.5rem] overflow-hidden shadow-2xl border flex flex-col md:flex-row min-h-[250px] transition-colors duration-500"
+              className="w-full max-w-md rounded-[2.5rem] overflow-hidden shadow-2xl border flex flex-col md:flex-row min-h-[250px] transition-colors duration-500 relative"
             >
-              <div className="w-full md:w-[40%] bg-slate-800 relative">
+              <canvas 
+                ref={canvasRef}
+                width={448}
+                height={250}
+                onMouseDown={startDrawing}
+                onMouseMove={draw}
+                onMouseUp={stopDrawing}
+                onMouseLeave={stopDrawing}
+                onTouchStart={startDrawing}
+                onTouchMove={draw}
+                onTouchEnd={stopDrawing}
+                className="absolute inset-0 w-full h-full z-20 cursor-crosshair touch-none"
+              />
+              <div className="w-full md:w-[40%] bg-slate-800 relative z-10 pointer-events-none">
                 <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
                 <div className="absolute bottom-4 left-4">
                   <div style={{ backgroundColor: colors.accent }} className="px-2 py-0.5 text-[8px] font-black text-white rounded-full uppercase tracking-widest">
@@ -78,7 +167,7 @@ const CardDesigner: React.FC<CardDesignerProps> = ({ stats, setStats }) => {
                   </div>
                 </div>
               </div>
-              <div className="flex-1 p-6 flex flex-col">
+              <div className="flex-1 p-6 flex flex-col relative z-10 pointer-events-none">
                 <h3 style={{ color: colors.text }} className="text-2xl font-black uppercase italic tracking-tighter mb-1">
                   {stats.userName || "TRAINER"}
                 </h3>
@@ -107,6 +196,49 @@ const CardDesigner: React.FC<CardDesignerProps> = ({ stats, setStats }) => {
                 </div>
               </div>
             </div>
+          </div>
+          
+          {/* Drawing Controls */}
+          <div className="bg-[#111] rounded-3xl p-6 border border-white/5 space-y-6">
+            <div className="flex flex-wrap items-center justify-between gap-6">
+              <div className="flex items-center gap-4">
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Brush</label>
+                <div className="flex bg-white/5 p-1 rounded-xl border border-white/10">
+                  {[
+                    { id: 'pen', icon: Pen },
+                    { id: 'marker', icon: Highlighter },
+                    { id: 'spray', icon: Wind },
+                  ].map((type) => (
+                    <button
+                      key={type.id}
+                      onClick={() => setBrushType(type.id as any)}
+                      className={`p-2 rounded-lg transition-all ${brushType === type.id ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
+                    >
+                      <type.icon size={16} />
+                    </button>
+                  ))}
+                </div>
+                <input 
+                  type="color" 
+                  value={brushColor} 
+                  onChange={(e) => setBrushColor(e.target.value)} 
+                  className="w-8 h-8 rounded-lg cursor-pointer bg-transparent" 
+                />
+              </div>
+              <div className="flex items-center gap-4 flex-1 max-w-xs">
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Size</label>
+                <input 
+                  type="range" 
+                  min="1" 
+                  max="40" 
+                  value={brushSize} 
+                  onChange={(e) => setBrushSize(parseInt(e.target.value))}
+                  className="flex-1 accent-indigo-500"
+                />
+                <span className="text-[10px] font-black text-indigo-500 w-6">{brushSize}</span>
+              </div>
+            </div>
+            <p className="text-[10px] font-bold text-slate-600 italic text-center">Draw directly on the card above! Try the spray or marker for cool effects.</p>
           </div>
         </div>
 

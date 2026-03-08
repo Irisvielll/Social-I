@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Difficulty, UserStats, Challenge, ChallengeResult, Suggestion } from './types';
-import { INITIAL_CHALLENGES, getLevelInfo, POINTS_PER_LEVEL } from './constants';
+import { INITIAL_CHALLENGES, getLevelInfo, POINTS_PER_LEVEL, DEFAULT_DESIGNS } from './constants';
 import { generateDailyChallenge, getEncouragement } from './services/geminiService';
 import { 
   Trophy, 
@@ -19,7 +19,9 @@ import {
   ThumbsUp,
   Send,
   ShoppingBag,
-  Play
+  Play,
+  Smartphone,
+  Monitor
 } from 'lucide-react';
 import { io } from 'socket.io-client';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -33,9 +35,29 @@ import Shop from './components/Shop';
 import CardDesigner from './components/CardDesigner';
 import { SocialChallenge } from './types';
 
+const StyledText: React.FC<{ text: string }> = ({ text }) => {
+  if (!text) return null;
+  const parts = text.split(/(congrats!|¡felicidades!|félicitations !|herzlichen glückwunsch!|おめでとう！|축하합니다!|恭喜！)/i);
+  return (
+    <>
+      {parts.map((part, i) => {
+        const isCongrats = /(congrats!|¡felicidades!|félicitations !|herzlichen glückwunsch!|おめでとう！|축하합니다!|恭喜！)/i.test(part);
+        if (isCongrats) {
+          return (
+            <span key={i} className="font-serif italic tracking-wide text-indigo-600 dark:text-indigo-400 text-[0.92em]" style={{ fontFamily: '"Times New Roman", Times, serif' }}>
+              {part}
+            </span>
+          );
+        }
+        return <span key={i}>{part}</span>;
+      })}
+    </>
+  );
+};
+
 const App: React.FC = () => {
   const [stats, setStats] = useState<UserStats>(() => {
-    const saved = localStorage.getItem('introvert_up_stats');
+    const saved = localStorage.getItem('social_i_stats');
     return saved ? JSON.parse(saved) : {
       points: 0,
       level: 1,
@@ -55,12 +77,39 @@ const App: React.FC = () => {
   const [view, setView] = useState<'home' | 'social' | 'settings' | 'profile' | 'shop' | 'designer'>('social');
   const myId = useMemo(() => `user-${Math.floor(Math.random() * 1000)}`, []);
   const [socket, setSocket] = useState<any>(null);
+  const [showInstallPrompt, setShowInstallPrompt] = useState(true);
+  const [isInstallPromptMinimized, setIsInstallPromptMinimized] = useState(false);
 
   useEffect(() => {
-    const newSocket = io();
+    const timer = setTimeout(() => {
+      setShowInstallPrompt(false);
+    }, 50000); // 50 seconds
+
+    return () => clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
+    const newSocket = io({
+      reconnectionAttempts: 5,
+      timeout: 10000,
+    });
+    
     setSocket(newSocket);
-    newSocket.emit("join", myId);
-    return () => newSocket.close();
+    
+    newSocket.on("connect", () => {
+      newSocket.emit("join", myId);
+    });
+
+    newSocket.on("connect_error", (err) => {
+      console.warn("Socket connection error:", err.message);
+    });
+
+    return () => {
+      if (newSocket) {
+        newSocket.off();
+        newSocket.close();
+      }
+    };
   }, [myId]);
 
   const [activeChallenge, setActiveChallenge] = useState<Challenge | null>(() => {
@@ -76,7 +125,7 @@ const App: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [isChangingLanguage, setIsChangingLanguage] = useState(false);
   const [isWatchingAd, setIsWatchingAd] = useState(false);
-  const [encouragement, setEncouragement] = useState("Ready to level up your social game?");
+  const [encouragement, setEncouragement] = useState("Ready for a congrats! on your social game?");
   const [showConfetti, setShowConfetti] = useState(false);
   
   // Suggestion form state
@@ -106,9 +155,16 @@ const App: React.FC = () => {
   }, [stats.level, prevLevel]);
   const [pendingSocialChallenge, setPendingSocialChallenge] = useState<SocialChallenge | null>(null);
   const [isChallenging, setIsChallenging] = useState<string | null>(null);
+  const [globalAiMessage, setGlobalAiMessage] = useState<{ text: string, senderName: string } | null>(null);
 
   useEffect(() => {
     if (!socket) return;
+
+    socket.on("receive_ai_broadcast", (data: { text: string, senderName: string }) => {
+      setGlobalAiMessage(data);
+      // Auto-hide after 15 seconds
+      setTimeout(() => setGlobalAiMessage(null), 15000);
+    });
 
     socket.on("challenge_received", (challenge: SocialChallenge) => {
       setPendingSocialChallenge(challenge);
@@ -134,7 +190,7 @@ const App: React.FC = () => {
   }, [socket]);
 
   useEffect(() => {
-    localStorage.setItem('introvert_up_stats', JSON.stringify(stats));
+    localStorage.setItem('social_i_stats', JSON.stringify(stats));
   }, [stats]);
 
   useEffect(() => {
@@ -299,8 +355,30 @@ const App: React.FC = () => {
     setSuggestions(prev => prev.map(s => s.id === id ? { ...s, votes: s.votes + 1 } : s));
   };
 
-  const handleOnboarding = (aiName: string, userName: string) => {
-    setStats(prev => ({ ...prev, aiName, userName, isAiNamed: true }));
+  const handleOnboarding = (aiName: string, userName: string, deviceType: 'mobile' | 'pc', layoutMode: 'portrait' | 'landscape' | 'popup') => {
+    setStats(prev => ({ ...prev, aiName, userName, isAiNamed: true, deviceType, layoutMode }));
+  };
+
+  const activeDesign = useMemo(() => {
+    return stats.customDesigns?.find(d => d.id === stats.activeDesignId) || 
+           DEFAULT_DESIGNS.find(d => d.id === stats.activeDesignId) || 
+           DEFAULT_DESIGNS[0];
+  }, [stats.activeDesignId, stats.customDesigns]);
+
+  const getStyle = (val: string, type: 'bg' | 'text' | 'border') => {
+    if (!val) return {};
+    if (val.startsWith('#') || val.startsWith('rgba') || val.startsWith('rgb')) {
+      if (type === 'bg') return { backgroundColor: val };
+      if (type === 'text') return { color: val };
+      if (type === 'border') return { borderColor: val };
+    }
+    return {};
+  };
+
+  const getClass = (val: string) => {
+    if (!val) return '';
+    if (val.startsWith('#') || val.startsWith('rgba') || val.startsWith('rgb')) return '';
+    return val;
   };
 
   const levelInfo = getLevelInfo(stats.level);
@@ -362,12 +440,74 @@ const App: React.FC = () => {
                 className="w-full bg-[#1a1a1a] border border-white/5 rounded-2xl px-6 py-5 text-white outline-none focus:ring-2 focus:ring-indigo-500/50 focus:bg-[#222] transition-all placeholder:text-slate-700 font-bold"
               />
             </div>
+
+            <div className="group">
+              <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] block mb-3 ml-1">
+                {t.selectDevice}
+              </label>
+              <div className="grid grid-cols-1 gap-3">
+                <button 
+                  id="device-mobile"
+                  onClick={() => {
+                    ['device-mobile', 'device-tablet', 'device-pc'].forEach(id => {
+                      document.getElementById(id)?.classList.remove('bg-indigo-600', 'text-white', 'border-indigo-500');
+                      document.getElementById(id)?.classList.add('bg-[#1a1a1a]', 'text-slate-400', 'border-white/5');
+                    });
+                    document.getElementById('device-mobile')?.classList.add('bg-indigo-600', 'text-white', 'border-indigo-500');
+                    document.getElementById('device-mobile')?.classList.remove('bg-[#1a1a1a]', 'text-slate-400', 'border-white/5');
+                    (window as any).selectedDevice = 'mobile';
+                    (window as any).selectedLayout = 'portrait';
+                  }}
+                  className="py-4 bg-[#1a1a1a] text-slate-400 rounded-2xl font-bold uppercase tracking-widest border border-white/5 transition-all flex items-center justify-center gap-3"
+                >
+                  <Smartphone size={18} />
+                  {t.mobile}
+                </button>
+                <button 
+                  id="device-tablet"
+                  onClick={() => {
+                    ['device-mobile', 'device-tablet', 'device-pc'].forEach(id => {
+                      document.getElementById(id)?.classList.remove('bg-indigo-600', 'text-white', 'border-indigo-500');
+                      document.getElementById(id)?.classList.add('bg-[#1a1a1a]', 'text-slate-400', 'border-white/5');
+                    });
+                    document.getElementById('device-tablet')?.classList.add('bg-indigo-600', 'text-white', 'border-indigo-500');
+                    document.getElementById('device-tablet')?.classList.remove('bg-[#1a1a1a]', 'text-slate-400', 'border-white/5');
+                    (window as any).selectedDevice = 'mobile';
+                    (window as any).selectedLayout = 'landscape';
+                  }}
+                  className="py-4 bg-[#1a1a1a] text-slate-400 rounded-2xl font-bold uppercase tracking-widest border border-white/5 transition-all flex items-center justify-center gap-3"
+                >
+                  <Monitor size={18} className="rotate-90" />
+                  {t.tablet} / {t.landscape}
+                </button>
+                <button 
+                  id="device-pc"
+                  onClick={() => {
+                    ['device-mobile', 'device-tablet', 'device-pc'].forEach(id => {
+                      document.getElementById(id)?.classList.remove('bg-indigo-600', 'text-white', 'border-indigo-500');
+                      document.getElementById(id)?.classList.add('bg-[#1a1a1a]', 'text-slate-400', 'border-white/5');
+                    });
+                    document.getElementById('device-pc')?.classList.add('bg-indigo-600', 'text-white', 'border-indigo-500');
+                    document.getElementById('device-pc')?.classList.remove('bg-[#1a1a1a]', 'text-slate-400', 'border-white/5');
+                    (window as any).selectedDevice = 'pc';
+                    (window as any).selectedLayout = 'popup';
+                  }}
+                  className="py-4 bg-[#1a1a1a] text-slate-400 rounded-2xl font-bold uppercase tracking-widest border border-white/5 transition-all flex items-center justify-center gap-3"
+                >
+                  <Monitor size={18} />
+                  {t.pc} {t.popup}
+                </button>
+              </div>
+            </div>
             
             <button 
               onClick={() => {
                 const uName = (document.getElementById('user-name-input') as HTMLInputElement).value;
                 const aName = (document.getElementById('ai-name-input') as HTMLInputElement).value;
-                if (uName && aName) handleOnboarding(aName, uName);
+                const dType = (window as any).selectedDevice;
+                const lMode = (window as any).selectedLayout;
+                if (uName && aName && dType && lMode) handleOnboarding(aName, uName, dType, lMode);
+                else alert("Please fill all fields and select your device type!");
               }}
               className="w-full py-6 bg-white text-black rounded-2xl font-black uppercase tracking-[0.2em] hover:bg-indigo-500 hover:text-white transition-all shadow-xl active:scale-[0.98] mt-4"
             >
@@ -386,7 +526,91 @@ const App: React.FC = () => {
   }
 
   return (
-    <div className={`min-h-screen pb-40 transition-colors duration-500 ${stats.isDarkMode ? 'dark bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-900'}`}>
+    <div className={`min-h-screen transition-all duration-500 ${stats.isDarkMode ? 'dark bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-900'} ${stats.layoutMode === 'popup' ? 'md:flex md:items-center md:justify-center md:p-12 bg-indigo-950/20' : ''}`}>
+      <div className={`transition-all duration-700 ${stats.layoutMode === 'popup' ? 'w-full md:max-w-5xl md:h-[90vh] bg-white dark:bg-slate-900 md:rounded-[3rem] md:shadow-[0_50px_100px_-20px_rgba(0,0,0,0.5)] md:border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col relative' : 'w-full min-h-screen flex flex-col'}`}>
+        {/* PWA Install Prompt (Mobile Only) */}
+      <AnimatePresence>
+        {showInstallPrompt && (
+          <div className="fixed top-20 left-0 right-0 z-[100] pointer-events-none p-4 flex justify-center">
+            <motion.div 
+              initial={{ y: -100, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: -100, opacity: 0 }}
+              transition={{ type: "spring", damping: 20 }}
+              className={`bg-indigo-600 text-white rounded-2xl shadow-2xl flex items-center gap-3 pointer-events-auto border border-white/10 transition-all duration-500 overflow-hidden ${
+                isInstallPromptMinimized ? 'px-4 py-2 max-w-fit' : 'px-6 py-3 max-w-sm w-full'
+              }`}
+            >
+              <div className="p-2 bg-white/10 rounded-xl cursor-pointer" onClick={() => setIsInstallPromptMinimized(!isInstallPromptMinimized)}>
+                <Smartphone className="w-5 h-5" />
+              </div>
+              
+              {!isInstallPromptMinimized && (
+                <>
+                  <div className="text-left flex-1">
+                    <p className="text-[10px] font-black uppercase tracking-widest opacity-70">Install Social-I</p>
+                    <p className="text-xs font-bold">Add to Home Screen for full experience</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button 
+                      onClick={() => alert("To install:\n1. Tap Share (iOS) or Menu (Android)\n2. Select 'Add to Home Screen'")}
+                      className="bg-white text-indigo-600 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-50 transition-colors"
+                    >
+                      Guide
+                    </button>
+                    <button 
+                      onClick={() => setIsInstallPromptMinimized(true)}
+                      className="p-1 hover:bg-white/10 rounded-lg transition-colors"
+                    >
+                      <XCircle size={16} />
+                    </button>
+                  </div>
+                </>
+              )}
+
+              {isInstallPromptMinimized && (
+                <button 
+                  onClick={() => setIsInstallPromptMinimized(false)}
+                  className="text-[10px] font-black uppercase tracking-widest"
+                >
+                  Expand
+                </button>
+              )}
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {globalAiMessage && (
+          <motion.div 
+            initial={{ y: 100, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 100, opacity: 0 }}
+            className="fixed bottom-24 left-4 right-4 z-[150] flex justify-center pointer-events-none"
+          >
+            <div className="bg-indigo-600 text-white p-6 rounded-[2rem] shadow-2xl border border-white/20 max-w-lg w-full pointer-events-auto relative overflow-hidden">
+              <div className="absolute top-0 right-0 p-4 opacity-10">
+                <Sparkles size={80} />
+              </div>
+              <div className="flex items-center gap-3 mb-3">
+                <div className="p-2 bg-white/20 rounded-xl">
+                  <Sparkles className="w-5 h-5 text-amber-300" />
+                </div>
+                <p className="text-[10px] font-black uppercase tracking-[0.3em]">{globalAiMessage.senderName} Broadcast</p>
+              </div>
+              <p className="text-sm font-bold leading-relaxed italic">"{globalAiMessage.text}"</p>
+              <button 
+                onClick={() => setGlobalAiMessage(null)}
+                className="absolute top-4 right-4 p-1 hover:bg-white/10 rounded-lg transition-colors"
+              >
+                <XCircle size={16} />
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <AnimatePresence>
         {isChangingLanguage && (
           <motion.div 
@@ -409,13 +633,22 @@ const App: React.FC = () => {
       </AnimatePresence>
 
       {showConfetti && (
-        <div className="fixed inset-0 pointer-events-none z-50 flex items-center justify-center">
-          <div className="animate-bounce text-6xl drop-shadow-xl">✨🎉 LEVEL UP! 🎊✨</div>
+        <div className="fixed inset-0 pointer-events-none z-50 flex items-center justify-center bg-slate-900/5 backdrop-blur-[1px]">
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-md shadow-2xl rounded-sm border border-slate-200/50 dark:border-slate-700/50 py-8 px-16 flex flex-col items-center gap-2"
+          >
+            <span className="text-[10px] uppercase tracking-[0.4em] text-slate-400 font-sans font-semibold">Achievement</span>
+            <div className="text-2xl tracking-[0.25em] font-serif italic text-slate-800 dark:text-white">
+              CONGRATS
+            </div>
+          </motion.div>
         </div>
       )}
 
       <header className="sticky top-0 z-40 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 px-4 py-4">
-        <div className="max-w-2xl mx-auto flex justify-between items-center">
+        <div className={`${stats.layoutMode === 'portrait' ? 'max-w-2xl' : 'max-w-6xl'} mx-auto flex justify-between items-center`}>
           <div className="flex items-center gap-2 cursor-pointer" onClick={() => setView('home')}>
             <div className="p-2 bg-indigo-600 rounded-lg">
               <Sparkles className="text-white w-6 h-6" />
@@ -439,14 +672,37 @@ const App: React.FC = () => {
       </header>
 
       {view === 'home' && (
-        <main className="max-w-2xl mx-auto p-4 space-y-6">
+        <main className={`${stats.layoutMode === 'portrait' ? 'max-w-2xl' : 'max-w-6xl'} mx-auto p-4 space-y-6`}>
           {/* Status Card */}
-          <section className="bg-white dark:bg-slate-800 rounded-3xl p-6 shadow-md border border-slate-100 dark:border-slate-700 transition-all">
-            <div className="flex justify-between items-end mb-4">
+          <section 
+            style={{ 
+              ...getStyle(activeDesign.style.cardBg, 'bg'), 
+              ...getStyle(activeDesign.style.border, 'border') 
+            }}
+            className={`rounded-[2.5rem] p-6 shadow-md border transition-all relative overflow-hidden ${getClass(activeDesign.style.cardBg)} ${getClass(activeDesign.style.border)}`}
+          >
+            {activeDesign.drawingData && (
+              <img 
+                src={activeDesign.drawingData} 
+                className="absolute inset-0 w-full h-full object-cover opacity-30 pointer-events-none" 
+                alt="Custom Drawing"
+              />
+            )}
+            <div className="flex justify-between items-end mb-4 relative z-10">
               <div>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mb-1">{t.socialRank}</p>
+                <p 
+                  style={getStyle(activeDesign.style.text, 'text')}
+                  className={`text-[10px] font-bold uppercase tracking-[0.2em] mb-1 ${getClass(activeDesign.style.text)} opacity-40`}
+                >
+                  {t.socialRank}
+                </p>
                 <div className="flex items-center gap-3">
-                  <h2 className={`text-2xl font-black ${levelInfo.color}`}>{levelInfo.title}</h2>
+                  <h2 
+                    style={getStyle(activeDesign.style.text, 'text')}
+                    className={`text-2xl font-black ${getClass(activeDesign.style.text)}`}
+                  >
+                    {levelInfo.title}
+                  </h2>
                   <div className="flex items-center gap-2">
                     <div className="flex gap-0.5">
                       {[...Array(3)].map((_, i) => (
@@ -473,22 +729,41 @@ const App: React.FC = () => {
                     )}
                   </div>
                 </div>
-                <p className="text-slate-400 text-sm font-medium">{t.level} {stats.level}</p>
+                <p 
+                  style={getStyle(activeDesign.style.text, 'text')}
+                  className={`text-sm font-medium ${getClass(activeDesign.style.text)} opacity-60`}
+                >
+                  {t.level} {stats.level}
+                </p>
               </div>
               <div className="text-right">
-                <p className="text-[10px] text-slate-400 font-bold mb-1 uppercase tracking-widest">{t.mastery}</p>
+                <p 
+                  style={getStyle(activeDesign.style.text, 'text')}
+                  className={`text-[10px] font-bold mb-1 uppercase tracking-widest ${getClass(activeDesign.style.text)} opacity-40`}
+                >
+                  {t.mastery}
+                </p>
                 <div className="w-32 h-2.5 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden shadow-inner">
                   <div 
-                    className="h-full bg-indigo-500 transition-all duration-700 ease-out" 
-                    style={{ width: `${nextLevelProgress}%` }}
+                    style={{ 
+                      ...getStyle(activeDesign.style.accent, 'bg'),
+                      width: `${nextLevelProgress}%` 
+                    }}
+                    className={`h-full transition-all duration-700 ease-out ${getClass(activeDesign.style.accent)}`} 
                   />
                 </div>
               </div>
             </div>
-            <div className="bg-indigo-50 dark:bg-indigo-900/20 p-4 rounded-2xl flex gap-3 items-start border border-indigo-100 dark:border-indigo-900/50 shadow-sm">
-              <Info className="w-5 h-5 text-indigo-500 mt-0.5 shrink-0" />
-              <p className="text-sm text-indigo-900 dark:text-indigo-300 leading-relaxed font-medium text-justify">
-                "{encouragement}"
+            <div className="bg-white/5 backdrop-blur-sm p-4 rounded-2xl flex gap-3 items-start border border-white/10 shadow-sm relative z-10">
+              <Info 
+                style={getStyle(activeDesign.style.text, 'text')}
+                className={`w-5 h-5 ${getClass(activeDesign.style.text)} opacity-60 mt-0.5 shrink-0`} 
+              />
+              <p 
+                style={getStyle(activeDesign.style.text, 'text')}
+                className={`text-sm ${getClass(activeDesign.style.text)} opacity-80 leading-relaxed font-medium text-justify`}
+              >
+                "<StyledText text={encouragement} />"
               </p>
             </div>
           </section>
@@ -749,8 +1024,37 @@ const App: React.FC = () => {
         />
       )}
       {view === 'settings' && <Settings stats={stats} setStats={setStats} changeLanguage={changeLanguage} />}
-      {view === 'profile' && <AdminDashboard stats={stats} setStats={setStats} />}
-      {view === 'shop' && <Shop stats={stats} setStats={setStats} />}
+      <AnimatePresence>
+        {view === 'profile' && (
+          stats.layoutMode === 'popup' ? (
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md"
+            >
+              <motion.div 
+                initial={{ scale: 0.9, y: 20 }}
+                animate={{ scale: 1, y: 0 }}
+                exit={{ scale: 0.9, y: 20 }}
+                className="w-full max-w-5xl max-h-[90vh] overflow-y-auto bg-white dark:bg-slate-900 rounded-[3rem] shadow-2xl border border-white/10"
+              >
+                <AdminDashboard stats={stats} setStats={setStats} onClose={() => setView('home')} />
+              </motion.div>
+            </motion.div>
+          ) : (
+            <motion.div
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 20 }}
+              className="flex-1 overflow-y-auto"
+            >
+              <AdminDashboard stats={stats} setStats={setStats} />
+            </motion.div>
+          )
+        )}
+      </AnimatePresence>
+      {view === 'shop' && <Shop stats={stats} setStats={setStats} setView={setView} />}
       {view === 'designer' && <CardDesigner stats={stats} setStats={setStats} />}
 
       {/* Global Social Challenge Flow */}
@@ -768,9 +1072,9 @@ const App: React.FC = () => {
       )}
 
       {/* Bottom Nav & Ads Container */}
-      <div className="fixed bottom-0 left-0 right-0 z-40">
+      <div className={stats.layoutMode === 'popup' ? 'absolute bottom-0 left-0 right-0 z-40' : 'fixed bottom-0 left-0 right-0 z-40'}>
         {/* Bottom Nav */}
-        <nav className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl border-t border-slate-200 dark:border-slate-800 px-6 py-4 max-w-2xl mx-auto rounded-t-[2.5rem] shadow-[0_-15px_40px_-20px_rgba(0,0,0,0.15)] mb-0">
+        <nav className={`bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl border-t border-slate-200 dark:border-slate-800 px-6 py-4 ${stats.layoutMode === 'portrait' ? 'max-w-2xl' : 'max-w-6xl'} mx-auto rounded-t-[2.5rem] shadow-[0_-15px_40px_-20px_rgba(0,0,0,0.15)] mb-0 ${stats.layoutMode === 'popup' ? 'rounded-b-[3rem]' : ''}`}>
           <div className="flex justify-around items-center">
             <button 
               onClick={() => setView('home')}
@@ -811,7 +1115,7 @@ const App: React.FC = () => {
         </nav>
         
         {/* AdSpace is now below Nav */}
-        <div className="relative z-50">
+        <div className={`relative z-50 ${stats.layoutMode === 'popup' ? 'hidden' : ''}`}>
           <AdSpace />
         </div>
       </div>
@@ -851,6 +1155,7 @@ const App: React.FC = () => {
         )}
       </AnimatePresence>
     </div>
+  </div>
   );
 };
 

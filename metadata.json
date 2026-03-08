@@ -1,6 +1,6 @@
 {
-  "name": "IntroVert-UP",
-  "description": "A gamified social confidence builder that challenges you to perform micro-extrovert tasks to level up your social skills.",
+  "name": "Social-I",
+  "description": "Social-I is a gamified social confidence builder that challenges you to perform micro-extrovert tasks to get a congrats! on your social skills.",
   "requestFramePermissions": [
     "camera"
   ]

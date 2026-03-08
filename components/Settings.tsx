@@ -1,8 +1,28 @@
 
 import React, { useState } from 'react';
-import { Moon, Sun, CreditCard, ShieldCheck, Heart, Zap, UserMinus, Plus, Smartphone, Wallet, Languages, Play } from 'lucide-react';
+import { Moon, Sun, CreditCard, ShieldCheck, Heart, Zap, UserMinus, Plus, Smartphone, Wallet, Languages, Play, ShoppingBag, Monitor, Check } from 'lucide-react';
 import { UserStats } from '../types';
 import { Language, TRANSLATIONS } from '../translations';
+
+const StyledText: React.FC<{ text: string }> = ({ text }) => {
+  if (!text) return null;
+  const parts = text.split(/(congrats!|¡felicidades!|félicitations !|herzlichen glückwunsch!|おめでとう！|축하합니다!|恭喜！)/i);
+  return (
+    <>
+      {parts.map((part, i) => {
+        const isCongrats = /(congrats!|¡felicidades!|félicitations !|herzlichen glückwunsch!|おめでとう！|축하합니다!|恭喜！)/i.test(part);
+        if (isCongrats) {
+          return (
+            <span key={i} className="font-serif italic tracking-wide text-indigo-600 dark:text-indigo-400 text-[0.92em]" style={{ fontFamily: '"Times New Roman", Times, serif' }}>
+              {part}
+            </span>
+          );
+        }
+        return <span key={i}>{part}</span>;
+      })}
+    </>
+  );
+};
 
 interface SettingsProps {
   stats: UserStats;
@@ -69,7 +89,7 @@ const Settings: React.FC<SettingsProps> = ({ stats, setStats, changeLanguage }) 
   };
 
   return (
-    <div className="max-w-2xl mx-auto p-6 space-y-8">
+    <div className={`${stats.layoutMode === 'portrait' ? 'max-w-2xl' : 'max-w-6xl'} mx-auto p-6 space-y-8`}>
       <section className="bg-white dark:bg-slate-800 rounded-3xl p-6 shadow-sm border border-slate-100 dark:border-slate-700">
         <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
           {stats.isDarkMode ? <Moon size={20} /> : <Sun size={20} />}
@@ -111,6 +131,59 @@ const Settings: React.FC<SettingsProps> = ({ stats, setStats, changeLanguage }) 
 
       <section className="bg-white dark:bg-slate-800 rounded-3xl p-6 shadow-sm border border-slate-100 dark:border-slate-700">
         <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
+          <Smartphone size={20} />
+          Device & Layout
+        </h2>
+        <div className={`grid grid-cols-1 ${stats.layoutMode === 'portrait' ? '' : 'sm:grid-cols-3'} gap-3`}>
+          <button 
+            onClick={() => setStats(prev => ({ ...prev, layoutMode: 'portrait', deviceType: 'mobile' }))}
+            className={`flex items-center justify-between p-4 rounded-2xl border transition-all ${
+              stats.layoutMode === 'portrait' 
+                ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg' 
+                : 'bg-slate-50 dark:bg-slate-900 text-slate-600 dark:text-slate-400 border-slate-100 dark:border-slate-800 hover:border-indigo-300'
+            }`}
+          >
+            <div className="flex items-center gap-3">
+              <Smartphone size={18} />
+              <span className="font-bold">Portrait (Mobile)</span>
+            </div>
+            {stats.layoutMode === 'portrait' && <Check size={16} />}
+          </button>
+          
+          <button 
+            onClick={() => setStats(prev => ({ ...prev, layoutMode: 'landscape', deviceType: 'mobile' }))}
+            className={`flex items-center justify-between p-4 rounded-2xl border transition-all ${
+              stats.layoutMode === 'landscape' 
+                ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg' 
+                : 'bg-slate-50 dark:bg-slate-900 text-slate-600 dark:text-slate-400 border-slate-100 dark:border-slate-800 hover:border-indigo-300'
+            }`}
+          >
+            <div className="flex items-center gap-3">
+              <Monitor size={18} className="rotate-90" />
+              <span className="font-bold">Landscape (Tablet)</span>
+            </div>
+            {stats.layoutMode === 'landscape' && <Check size={16} />}
+          </button>
+          
+          <button 
+            onClick={() => setStats(prev => ({ ...prev, layoutMode: 'popup', deviceType: 'pc' }))}
+            className={`flex items-center justify-between p-4 rounded-2xl border transition-all ${
+              stats.layoutMode === 'popup' 
+                ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg' 
+                : 'bg-slate-50 dark:bg-slate-900 text-slate-600 dark:text-slate-400 border-slate-100 dark:border-slate-800 hover:border-indigo-300'
+            }`}
+          >
+            <div className="flex items-center gap-3">
+              <Monitor size={18} />
+              <span className="font-bold">PC Pop-up</span>
+            </div>
+            {stats.layoutMode === 'popup' && <Check size={16} />}
+          </button>
+        </div>
+      </section>
+
+      <section className="bg-white dark:bg-slate-800 rounded-3xl p-6 shadow-sm border border-slate-100 dark:border-slate-700">
+        <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
           <CreditCard size={20} />
           In-App Purchases
         </h2>
@@ -121,7 +194,7 @@ const Settings: React.FC<SettingsProps> = ({ stats, setStats, changeLanguage }) 
           </div>
         )}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className={`grid grid-cols-1 ${stats.layoutMode === 'portrait' ? 'md:grid-cols-2' : 'sm:grid-cols-2 lg:grid-cols-3'} gap-4`}>
           <button 
             disabled={!!isPurchasing}
             onClick={() => handlePurchase("3 Hearts", 0.99, () => setStats(prev => ({ ...prev, hearts: 3 })))}
@@ -147,13 +220,13 @@ const Settings: React.FC<SettingsProps> = ({ stats, setStats, changeLanguage }) 
               <span className="font-bold text-indigo-600">$9.99</span>
             </div>
             <h4 className="font-bold">{t.proMode}</h4>
-            <p className="text-xs text-slate-500 text-justify">{t.readyToLevelUp}</p>
+            <p className="text-xs text-slate-500 text-justify"><StyledText text={t.readyToLevelUp} /></p>
           </button>
 
           <button 
             disabled={!!isPurchasing}
             onClick={() => handlePurchase("Unfriend Fee", 0.67, () => {})}
-            className="p-4 border border-slate-100 dark:border-slate-700 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors text-left relative overflow-hidden"
+            className="p-4 border border-slate-100 dark:border-slate-800 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors text-left relative overflow-hidden"
           >
             {isPurchasing === "Unfriend Fee" && <div className="absolute inset-0 bg-white/80 dark:bg-slate-800/80 flex items-center justify-center z-10"><div className="w-5 h-5 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" /></div>}
             <div className="flex justify-between items-start mb-2">
@@ -163,6 +236,23 @@ const Settings: React.FC<SettingsProps> = ({ stats, setStats, changeLanguage }) 
             <h4 className="font-bold">{t.unfriendFee}</h4>
             <p className="text-xs text-slate-500 text-justify">{t.unfriendDesc}</p>
             <p className="text-[10px] text-rose-500 mt-1 font-bold text-justify">{t.unfriendOrMission}</p>
+          </button>
+
+          <button 
+            disabled={!!isPurchasing}
+            onClick={() => handlePurchase("Custom Design Slot", 5.00, () => {
+              setStats(prev => ({ ...prev, hasUnlockedDesigner: true }));
+              alert("Custom Design Slot Unlocked! You can now create a new design in the Shop.");
+            })}
+            className="p-4 border border-indigo-100 bg-indigo-50/30 dark:bg-indigo-900/20 dark:border-indigo-900 rounded-2xl hover:bg-indigo-50 dark:hover:bg-indigo-900/40 transition-colors text-left relative overflow-hidden"
+          >
+            {isPurchasing === "Custom Design Slot" && <div className="absolute inset-0 bg-white/80 dark:bg-slate-800/80 flex items-center justify-center z-10"><div className="w-5 h-5 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" /></div>}
+            <div className="flex justify-between items-start mb-2">
+              <ShoppingBag className="text-indigo-500" size={24} />
+              <span className="font-bold text-indigo-600">$5.00</span>
+            </div>
+            <h4 className="font-bold">Unlock Custom Design</h4>
+            <p className="text-xs text-slate-500 text-justify">Design your own profile card and share it with the world!</p>
           </button>
 
           <button 
@@ -197,7 +287,7 @@ const Settings: React.FC<SettingsProps> = ({ stats, setStats, changeLanguage }) 
             <button className="text-xs text-indigo-600 font-bold">Edit</button>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className={`grid grid-cols-2 ${stats.layoutMode === 'portrait' ? '' : 'sm:grid-cols-4'} gap-3`}>
             <button 
               onClick={() => handlePurchase("Apple Pay Setup", 0, () => alert("Apple Pay linked!"))}
               className="flex items-center justify-center gap-2 p-3 border border-slate-100 dark:border-slate-700 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors relative overflow-hidden"

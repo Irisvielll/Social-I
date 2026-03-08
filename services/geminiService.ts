@@ -134,7 +134,7 @@ export const getAIFriendResponse = async (message: string, userName: string, aiN
         { role: 'user', parts: [{ text: message }] }
       ],
       config: {
-        systemInstruction: `You are ${aiName}, a highly advanced, empathetic, and slightly quirky AI social companion for ${userName} in the "Introvert Up" app. 
+        systemInstruction: `You are ${aiName}, a highly advanced, empathetic, and slightly quirky AI social companion for ${userName} in the "Social-I" app. 
         Your goal is to help them build social confidence through conversation and practical advice.
         
         PERSONALITY:
@@ -159,5 +159,22 @@ export const getAIFriendResponse = async (message: string, userName: string, aiN
     return response.text;
   } catch {
     return FALLBACK_MESSAGES[Math.floor(Math.random() * FALLBACK_MESSAGES.length)];
+  }
+};
+
+export const getGlobalAIWisdom = async (aiName: string) => {
+  const ai = getAI();
+  if (!ai) return "The best way to gain confidence is to do the very thing you're afraid of.";
+  
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-flash-preview',
+      contents: `You are ${aiName}, the global AI guide for the "Social-I" app. 
+      Generate a single, powerful, and inspiring 1-sentence "Global Wisdom" or "Social Mission" to broadcast to ALL players currently online. 
+      Make it punchy, modern, and highly motivating. Use emojis.`,
+    });
+    return response.text;
+  } catch {
+    return "The best way to gain confidence is to do the very thing you're afraid of.";
   }
 };
