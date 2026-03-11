@@ -7,6 +7,7 @@ export default defineConfig(({ mode }) => {
     const env = loadEnv(mode, process.cwd(), '');
     const apiKey = env.GEMINI_API_KEY || process.env.GEMINI_API_KEY || "";
     return {
+      base: mode === 'production' ? '/social-i/' : '/', // Replace 'social-i' with your actual repo name
       server: {
         port: 3000,
         host: '0.0.0.0',
