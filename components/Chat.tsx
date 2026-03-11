@@ -36,14 +36,40 @@ const Chat: React.FC<ChatProps> = ({ friendId, friendName, myId, socket, stats, 
   }, [messages, friendId]);
 
   useEffect(() => {
-    if (isAI && messages.length === 0) {
-      setMessages([{
-        id: 'initial',
-        senderId: 'ai-friend',
-        text: `Hi ${stats.userName || 'there'}! I'm ${aiName}. I'm so excited to help you build your social confidence! What's on your mind today?`,
-        timestamp: Date.now()
-      }]);
-    }
+    const generateInitialGreeting = async () => {
+      if (isAI && messages.length === 0) {
+        setIsTyping(true);
+        try {
+          // Generate a friendly dynamic greeting
+          const greeting = await getAIFriendResponse(
+            "Give me a very friendly, enthusiastic, and welcoming first greeting for a new user starting the app. Mention that you are their social companion.",
+            stats.userName || "User",
+            aiName,
+            stats,
+            []
+          );
+          
+          setMessages([{
+            id: 'initial',
+            senderId: 'ai-friend',
+            text: greeting || `Hi ${stats.userName || 'there'}! I'm ${aiName}. I'm so excited to help you build your social confidence! What's on your mind today?`,
+            timestamp: Date.now()
+          }]);
+        } catch (err) {
+          console.error("Greeting Error:", err);
+          setMessages([{
+            id: 'initial',
+            senderId: 'ai-friend',
+            text: `Hi ${stats.userName || 'there'}! I'm ${aiName}. I'm so excited to help you build your social confidence! What's on your mind today?`,
+            timestamp: Date.now()
+          }]);
+        } finally {
+          setIsTyping(false);
+        }
+      }
+    };
+
+    generateInitialGreeting();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAI, aiName, stats.userName]);
 

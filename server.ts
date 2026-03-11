@@ -6,11 +6,8 @@ import { createServer as createViteServer } from "vite";
 import path from "path";
 import helmet from "helmet";
 import { rateLimit } from "express-rate-limit";
-import Stripe from "stripe";
 
-const stripe = process.env.STRIPE_SECRET_KEY 
-  ? new Stripe(process.env.STRIPE_SECRET_KEY) 
-  : null;
+const PAYMONGO_SECRET_KEY = process.env.PAYMONGO_SECRET_KEY;
 
 import { OWNER_CONFIG } from "./src/config/adminConfig";
 
@@ -39,9 +36,6 @@ async function startServer() {
     limit: 100, // Limit each IP to 100 requests per windowMs
     standardHeaders: 'draft-7',
     legacyHeaders: false,
-    keyGenerator: (req: any) => {
-      return req.headers['forwarded'] || req.headers['x-forwarded-for'] || req.ip;
-    },
     message: "Too many requests from this IP, please try again later."
   });
 
@@ -92,36 +86,75 @@ async function startServer() {
   });
 
   app.post("/api/create-checkout-session", async (req, res) => {
-    if (!stripe) {
-      return res.status(500).json({ error: "Stripe is not configured" });
+    if (!PAYMONGO_SECRET_KEY) {
+      console.error("PAYMONGO_SECRET_KEY is missing from environment variables");
+      return res.status(500).json({ error: "PayMongo is not configured on the server. Please add PAYMONGO_SECRET_KEY to environment variables." });
     }
 
     const { amount, name, description } = req.body;
 
+    // PayMongo minimum amount is 100 centavos (1 PHP), but many methods like GCash require 2000 (20 PHP)
+    // If the price is in USD (e.g. 0.99), we should convert it to a reasonable PHP amount for testing
+    // Let's assume 1 USD = 56 PHP for this demo
+    const phpAmount = Math.max(Math.round(amount * 56 * 100), 2000); 
+
     try {
-      const session = await stripe.checkout.sessions.create({
-        payment_method_types: ['card'],
-        line_items: [
-          {
-            price_data: {
-              currency: 'usd',
-              product_data: {
-                name: name || 'Social-I Purchase',
-                description: description || 'In-app purchase',
-              },
-              unit_amount: Math.round(amount * 100), // Stripe expects amount in cents
-            },
-            quantity: 1,
-          },
-        ],
-        mode: 'payment',
-        success_url: `${req.headers.origin}/?success=true`,
-        cancel_url: `${req.headers.origin}/?canceled=true`,
+      console.log(`Creating PayMongo session for ${name} - Amount: ${phpAmount} centavos`);
+      
+      const response = await fetch("https://api.paymongo.com/v1/checkout_sessions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Basic ${Buffer.from(PAYMONGO_SECRET_KEY + ":").toString("base64")}`
+        },
+        body: JSON.stringify({
+          data: {
+            attributes: {
+              line_items: [
+                {
+                  amount: phpAmount,
+                  currency: "PHP",
+                  name: name || "Social-I Purchase",
+                  description: description || "In-app purchase",
+                  quantity: 1
+                }
+              ],
+              payment_method_types: [
+                "card", 
+                "gcash", 
+                "paymaya", 
+                "grab_pay", 
+                "billease", 
+                "dob", 
+                "dob_ubp"
+              ],
+              success_url: req.body.success_url || `${req.headers.origin || 'http://localhost:3000'}/?success=true`,
+              cancel_url: `${req.headers.origin || 'http://localhost:3000'}/?canceled=true`,
+              description: description || "Social-I Purchase"
+            }
+          }
+        })
       });
 
-      res.json({ id: session.id, url: session.url });
+      const data: any = await response.json();
+
+      if (data.errors) {
+        console.error("PayMongo API Errors:", JSON.stringify(data.errors));
+        return res.status(400).json({ error: data.errors[0].detail });
+      }
+
+      if (!data.data || !data.data.attributes || !data.data.attributes.checkout_url) {
+        console.error("Unexpected PayMongo response:", JSON.stringify(data));
+        return res.status(500).json({ error: "Failed to get checkout URL from PayMongo" });
+      }
+
+      res.json({ 
+        id: data.data.id, 
+        url: data.data.attributes.checkout_url 
+      });
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      console.error("PayMongo Server Error:", error);
+      res.status(500).json({ error: error.message || "Internal server error during payment creation" });
     }
   });
 

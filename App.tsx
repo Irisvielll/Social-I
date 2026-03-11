@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Difficulty, UserStats, Challenge, ChallengeResult, Suggestion } from './types';
 import { INITIAL_CHALLENGES, getLevelInfo, POINTS_PER_LEVEL, DEFAULT_DESIGNS } from './constants';
-import { generateDailyChallenge, getEncouragement } from './services/geminiService';
+import { generateDailyChallenge, getEncouragement, translateText, getWelcomeMessage } from './services/geminiService';
 import { 
   Trophy, 
   Flame, 
@@ -192,6 +192,29 @@ const App: React.FC = () => {
   useEffect(() => {
     localStorage.setItem('social_i_stats', JSON.stringify(stats));
   }, [stats]);
+
+  useEffect(() => {
+    const triggerWelcome = async () => {
+      if (stats.isAiNamed && stats.userName && !globalAiMessage) {
+        try {
+          const welcome = await getWelcomeMessage(stats.userName, stats.aiName, stats);
+          setGlobalAiMessage({
+            text: welcome,
+            senderName: stats.aiName
+          });
+          // Auto-hide after 12 seconds
+          setTimeout(() => setGlobalAiMessage(null), 12000);
+        } catch (err) {
+          console.error("Welcome Error:", err);
+        }
+      }
+    };
+
+    // Small delay to let the app settle
+    const timer = setTimeout(triggerWelcome, 2000);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stats.isAiNamed, stats.userName, stats.aiName]);
 
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);

@@ -117,6 +117,24 @@ export const translateText = async (text: string, targetLanguage: string) => {
   }
 };
 
+export const getWelcomeMessage = async (userName: string, aiName: string, stats: any) => {
+  const ai = getAI();
+  if (!ai) return `Welcome back, ${userName}! I'm ${aiName}, ready to help you today.`;
+  
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-flash-preview',
+      contents: `The user ${userName} just opened the "Social-I" app. You are ${aiName}, their friendly AI social companion. 
+      Give them a very warm, enthusiastic, and friendly 1-sentence welcome back message. 
+      Mention something encouraging about their progress (Level ${stats.level}, Points ${stats.points}).
+      RESPOND IN THE USER'S CURRENT LANGUAGE: ${stats.language || 'English'}.`,
+    });
+    return response.text;
+  } catch {
+    return `Welcome back, ${userName}! I'm ${aiName}, ready to help you today.`;
+  }
+};
+
 export const getAIFriendResponse = async (message: string, userName: string, aiName: string, stats: any, history: Message[] = []) => {
   const ai = getAI();
   if (!ai) return FALLBACK_MESSAGES[Math.floor(Math.random() * FALLBACK_MESSAGES.length)];

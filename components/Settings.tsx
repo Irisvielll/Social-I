@@ -1,6 +1,6 @@
 
-import React, { useState } from 'react';
-import { Moon, Sun, CreditCard, ShieldCheck, Heart, Zap, UserMinus, Plus, Smartphone, Wallet, Languages, Play, ShoppingBag, Monitor, Check } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Moon, Sun, CreditCard, ShieldCheck, Heart, Zap, UserMinus, Plus, Smartphone, Languages, Play, ShoppingBag, Monitor, Check, Globe } from 'lucide-react';
 import { UserStats } from '../types';
 import { Language, TRANSLATIONS } from '../translations';
 
@@ -58,8 +58,78 @@ const Settings: React.FC<SettingsProps> = ({ stats, setStats, changeLanguage }) 
     setTimeout(() => setPaymentSuccess(""), 3000);
   };
 
+  const [paymentError, setPaymentError] = useState("");
+
+  const [linkingMethod, setLinkingMethod] = useState<string | null>(null);
+
+  const [transactions, setTransactions] = useState<{id: string, item: string, amount: number, date: string, status: string}[]>([]);
+
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('success') === 'true') {
+      const item = urlParams.get('item') || 'Social-I Purchase';
+      const amount = parseFloat(urlParams.get('amount') || '0');
+      
+      // Add to local history if not already there (simple check)
+      const newTx = {
+        id: Math.random().toString(36).substr(2, 9),
+        item,
+        amount,
+        date: new Date().toLocaleString(),
+        status: 'PAID'
+      };
+      
+      setTransactions(prev => {
+        // Prevent duplicates on refresh
+        if (prev.some(t => t.item === newTx.item && t.date.split(',')[0] === newTx.date.split(',')[0])) {
+          return prev;
+        }
+        return [newTx, ...prev];
+      });
+      
+      setPaymentSuccess(`Thank you! Your purchase of ${item} was successful.`);
+      // Clean up URL
+      window.history.replaceState({}, document.title, window.location.pathname);
+      setTimeout(() => setPaymentSuccess(""), 5000);
+    }
+  }, []);
+
+  const handleLinkMethod = async (method: string) => {
+    setLinkingMethod(method);
+    setPaymentError("");
+    
+    try {
+      // We'll create a small "Verification" session to show it works
+      const response = await fetch('/api/create-checkout-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          amount: 1.00, 
+          name: `Link ${method}`,
+          description: `Verification for linking ${method} to Social-I`,
+          success_url: `${window.location.origin}/?success=true&item=Link%20${method}&amount=1.00`
+        })
+      });
+
+      const session = await response.json();
+
+      if (session.url) {
+        // Redirect to PayMongo Checkout
+        window.location.href = session.url;
+      } else {
+        throw new Error(session.error || 'Failed to connect to PayMongo');
+      }
+    } catch (error: any) {
+      console.error('Linking error:', error);
+      setPaymentError(`Connection failed: ${error.message}`);
+    } finally {
+      setLinkingMethod(null);
+    }
+  };
+
   const handlePurchase = async (item: string, price: number) => {
     setIsPurchasing(item);
+    setPaymentError("");
     
     try {
       const response = await fetch('/api/create-checkout-session', {
@@ -68,21 +138,26 @@ const Settings: React.FC<SettingsProps> = ({ stats, setStats, changeLanguage }) 
         body: JSON.stringify({ 
           amount: price, 
           name: item,
-          description: `Purchase of ${item} for Social-I`
+          description: `Purchase of ${item} for Social-I`,
+          success_url: `${window.location.origin}/?success=true&item=${encodeURIComponent(item)}&amount=${price}`
         })
       });
 
       const session = await response.json();
 
       if (session.url) {
-        // Redirect to Stripe Checkout
+        // Redirect to PayMongo Checkout
         window.location.href = session.url;
       } else {
         throw new Error(session.error || 'Failed to create checkout session');
       }
     } catch (error: any) {
       console.error('Payment error:', error);
-      alert(`Payment failed: ${error.message}`);
+      setPaymentError(`Payment failed: ${error.message}`);
+      // Fallback alert if UI message is missed
+      setTimeout(() => {
+        if (!paymentError) alert(`Payment failed: ${error.message}`);
+      }, 100);
     } finally {
       setIsPurchasing(null);
     }
@@ -135,6 +210,29 @@ const Settings: React.FC<SettingsProps> = ({ stats, setStats, changeLanguage }) 
         <p className="mt-4 text-[10px] text-slate-400 italic">This will set the primary language for {stats.aiName || 'SocialAI'}.</p>
       </section>
 
+      {transactions.length > 0 && (
+        <section className="bg-white dark:bg-slate-800 rounded-3xl p-6 shadow-sm border border-slate-100 dark:border-slate-700 animate-in fade-in slide-in-from-bottom-4">
+          <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
+            <Check size={20} className="text-emerald-500" />
+            Transaction History
+          </h2>
+          <div className="space-y-3">
+            {transactions.map((tx) => (
+              <div key={tx.id} className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-100 dark:border-slate-800">
+                <div>
+                  <p className="text-sm font-bold">{tx.item}</p>
+                  <p className="text-[10px] text-slate-500">{tx.date}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm font-bold text-indigo-600">${tx.amount.toFixed(2)}</p>
+                  <p className="text-[10px] text-emerald-500 font-bold uppercase">{tx.status}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
       <section className="bg-white dark:bg-slate-800 rounded-3xl p-6 shadow-sm border border-slate-100 dark:border-slate-700">
         <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
           <Smartphone size={20} />
@@ -182,6 +280,12 @@ const Settings: React.FC<SettingsProps> = ({ stats, setStats, changeLanguage }) 
         {paymentSuccess && (
           <div className="mb-4 p-3 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 rounded-xl text-sm font-medium animate-bounce">
             {paymentSuccess}
+          </div>
+        )}
+
+        {paymentError && (
+          <div className="mb-4 p-3 bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-400 rounded-xl text-sm font-medium">
+            {paymentError}
           </div>
         )}
 
@@ -277,21 +381,52 @@ const Settings: React.FC<SettingsProps> = ({ stats, setStats, changeLanguage }) 
 
           <div className={`grid grid-cols-2 ${stats.layoutMode === 'portrait' ? '' : 'sm:grid-cols-4'} gap-3`}>
             <button 
-              onClick={() => handlePurchase("Apple Pay Setup", 0, () => alert("Apple Pay linked!"))}
-              className="flex items-center justify-center gap-2 p-3 border border-slate-100 dark:border-slate-700 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors relative overflow-hidden"
+              onClick={() => handleLinkMethod("Cards")}
+              disabled={!!linkingMethod}
+              className="flex flex-col items-center justify-center gap-1 p-3 border border-slate-100 dark:border-slate-700 rounded-2xl bg-slate-50/50 dark:bg-slate-900/30 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all relative overflow-hidden group"
             >
-              {isPurchasing === "Apple Pay Setup" && <div className="absolute inset-0 bg-white/80 dark:bg-slate-800/80 flex items-center justify-center z-10"><div className="w-4 h-4 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" /></div>}
-              <Smartphone size={18} className="text-slate-900 dark:text-white" />
-              <span className="text-sm font-bold">Apple Pay</span>
+              {linkingMethod === "Cards" && <div className="absolute inset-0 bg-white/60 dark:bg-slate-800/60 flex items-center justify-center z-10"><div className="w-4 h-4 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" /></div>}
+              <CreditCard size={18} className="text-indigo-500 group-hover:scale-110 transition-transform" />
+              <span className="text-[10px] font-bold uppercase tracking-wider opacity-60">Cards</span>
             </button>
             <button 
-              onClick={() => handlePurchase("GCash Link", 0, () => alert("GCash linked!"))}
-              className="flex items-center justify-center gap-2 p-3 border border-slate-100 dark:border-slate-700 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors relative overflow-hidden"
+              onClick={() => handleLinkMethod("GCash")}
+              disabled={!!linkingMethod}
+              className="flex flex-col items-center justify-center gap-1 p-3 border border-slate-100 dark:border-slate-700 rounded-2xl bg-slate-50/50 dark:bg-slate-900/30 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all relative overflow-hidden group"
             >
-              {isPurchasing === "GCash Link" && <div className="absolute inset-0 bg-white/80 dark:bg-slate-800/80 flex items-center justify-center z-10"><div className="w-4 h-4 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" /></div>}
-              <Wallet size={18} className="text-blue-500" />
-              <span className="text-sm font-bold">GCash</span>
+              {linkingMethod === "GCash" && <div className="absolute inset-0 bg-white/60 dark:bg-slate-800/60 flex items-center justify-center z-10"><div className="w-4 h-4 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin" /></div>}
+              <Smartphone size={18} className="text-emerald-500 group-hover:scale-110 transition-transform" />
+              <span className="text-[10px] font-bold uppercase tracking-wider opacity-60">GCash</span>
             </button>
+            <button 
+              onClick={() => handleLinkMethod("Maya")}
+              disabled={!!linkingMethod}
+              className="flex flex-col items-center justify-center gap-1 p-3 border border-slate-100 dark:border-slate-700 rounded-2xl bg-slate-50/50 dark:bg-slate-900/30 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all relative overflow-hidden group"
+            >
+              {linkingMethod === "Maya" && <div className="absolute inset-0 bg-white/60 dark:bg-slate-800/60 flex items-center justify-center z-10"><div className="w-4 h-4 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" /></div>}
+              <Smartphone size={18} className="text-indigo-400 group-hover:scale-110 transition-transform" />
+              <span className="text-[10px] font-bold uppercase tracking-wider opacity-60">Maya</span>
+            </button>
+            <button 
+              onClick={() => handleLinkMethod("GrabPay")}
+              disabled={!!linkingMethod}
+              className="flex flex-col items-center justify-center gap-1 p-3 border border-slate-100 dark:border-slate-700 rounded-2xl bg-slate-50/50 dark:bg-slate-900/30 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all relative overflow-hidden group"
+            >
+              {linkingMethod === "GrabPay" && <div className="absolute inset-0 bg-white/60 dark:bg-slate-800/60 flex items-center justify-center z-10"><div className="w-4 h-4 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" /></div>}
+              <Smartphone size={18} className="text-amber-500 group-hover:scale-110 transition-transform" />
+              <span className="text-[10px] font-bold uppercase tracking-wider opacity-60">GrabPay</span>
+            </button>
+          </div>
+
+          <div className="p-4 bg-indigo-50/50 dark:bg-indigo-900/10 rounded-2xl border border-indigo-100/50 dark:border-indigo-800/30">
+            <h4 className="text-xs font-bold text-indigo-900 dark:text-indigo-300 mb-1 flex items-center gap-2">
+              <Globe size={14} />
+              International & Local Methods
+            </h4>
+            <p className="text-[10px] text-slate-600 dark:text-slate-400 leading-relaxed">
+              We support <b>Visa, Mastercard, GCash, Maya, GrabPay, BillEase (BNPL)</b>, and <b>Direct Online Banking</b>. 
+              All payments are processed securely via PayMongo. PayPal is currently unavailable but coming soon!
+            </p>
           </div>
 
           {showAddCard ? (
@@ -332,29 +467,6 @@ const Settings: React.FC<SettingsProps> = ({ stats, setStats, changeLanguage }) 
         </div>
       </section>
 
-      <section className="bg-white dark:bg-slate-800 rounded-3xl p-6 shadow-sm border border-slate-100 dark:border-slate-700">
-        <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-          <ShoppingBag size={20} />
-          Market & Distribution
-        </h2>
-        <div className="space-y-4">
-          <div className="p-4 bg-indigo-50 dark:bg-indigo-900/20 rounded-2xl border border-indigo-100 dark:border-indigo-800">
-            <h4 className="font-bold text-indigo-900 dark:text-indigo-300 mb-1">PWA (Progressive Web App)</h4>
-            <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-              Your app is already PWA-ready. Users can "Add to Home Screen" to install it like a native app. 
-              To put it on the Google Play Store or Apple App Store, you can use tools like <b>PWABuilder</b> or <b>Capacitor</b>.
-            </p>
-          </div>
-          <div className="p-4 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-100 dark:border-slate-800">
-            <h4 className="font-bold mb-1">Custom Domain</h4>
-            <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-              To go live, point a custom domain (e.g., <code>social-i.com</code>) to your hosting provider. 
-              Ensure SSL is enabled for secure Stripe payments.
-            </p>
-          </div>
-        </div>
-      </section>
-      
       <div className="text-center text-[10px] text-slate-400">
         {t.allPaymentsSecure} Contact admin@introvertup.com for support.
       </div>
