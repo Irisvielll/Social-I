@@ -98,8 +98,19 @@ const Settings: React.FC<SettingsProps> = ({ stats, setStats, changeLanguage }) 
     setLinkingMethod(method);
     setPaymentError("");
     
+    // Check if running on GitHub Pages (static hosting)
+    const isGitHubPages = window.location.hostname.includes('github.io');
+
     try {
-      // We'll create a small "Verification" session to show it works
+      if (isGitHubPages) {
+        // Mock behavior for GitHub Pages since there's no backend
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        setPaymentSuccess(`Demo Mode: ${method} linked successfully!`);
+        setTimeout(() => setPaymentSuccess(""), 5000);
+        return;
+      }
+
+      // Real backend call for AI Studio preview or custom servers
       const response = await fetch('/api/create-checkout-session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -107,14 +118,13 @@ const Settings: React.FC<SettingsProps> = ({ stats, setStats, changeLanguage }) 
           amount: 1.00, 
           name: `Link ${method}`,
           description: `Verification for linking ${method} to Social-I`,
-          success_url: `${window.location.origin}/?success=true&item=Link%20${method}&amount=1.00`
+          success_url: `${window.location.origin}${window.location.pathname}?success=true&item=Link%20${method}&amount=1.00`
         })
       });
 
       const session = await response.json();
 
       if (session.url) {
-        // Redirect to PayMongo Checkout
         window.location.href = session.url;
       } else {
         throw new Error(session.error || 'Failed to connect to PayMongo');
@@ -131,7 +141,36 @@ const Settings: React.FC<SettingsProps> = ({ stats, setStats, changeLanguage }) 
     setIsPurchasing(item);
     setPaymentError("");
     
+    // Check if running on GitHub Pages (static hosting)
+    const isGitHubPages = window.location.hostname.includes('github.io');
+
     try {
+      if (isGitHubPages) {
+        // Mock behavior for GitHub Pages since there's no backend
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        // Apply the purchase effects locally for the demo
+        if (item.includes("Hearts")) {
+          setStats(prev => ({ ...prev, hearts: 3 }));
+        } else if (item === "Pro Mode") {
+          setStats(prev => ({ ...prev, isPro: true }));
+        }
+        
+        setPaymentSuccess(`Demo Mode: Purchase of ${item} successful!`);
+        
+        // Add to history
+        setTransactions(prev => [{
+          id: Math.random().toString(36).substr(2, 9),
+          item,
+          amount: price,
+          date: new Date().toLocaleString(),
+          status: 'PAID (DEMO)'
+        }, ...prev]);
+
+        setTimeout(() => setPaymentSuccess(""), 5000);
+        return;
+      }
+
       const response = await fetch('/api/create-checkout-session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -139,14 +178,13 @@ const Settings: React.FC<SettingsProps> = ({ stats, setStats, changeLanguage }) 
           amount: price, 
           name: item,
           description: `Purchase of ${item} for Social-I`,
-          success_url: `${window.location.origin}/?success=true&item=${encodeURIComponent(item)}&amount=${price}`
+          success_url: `${window.location.origin}${window.location.pathname}?success=true&item=${encodeURIComponent(item)}&amount=${price}`
         })
       });
 
       const session = await response.json();
 
       if (session.url) {
-        // Redirect to PayMongo Checkout
         window.location.href = session.url;
       } else {
         throw new Error(session.error || 'Failed to create checkout session');
@@ -154,7 +192,6 @@ const Settings: React.FC<SettingsProps> = ({ stats, setStats, changeLanguage }) 
     } catch (error: any) {
       console.error('Payment error:', error);
       setPaymentError(`Payment failed: ${error.message}`);
-      // Fallback alert if UI message is missed
       setTimeout(() => {
         if (!paymentError) alert(`Payment failed: ${error.message}`);
       }, 100);

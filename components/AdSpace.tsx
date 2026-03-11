@@ -11,10 +11,32 @@ const AdSpace: React.FC = () => {
   const [ads, setAds] = useState<Ad[]>([]);
 
   useEffect(() => {
+    const isGitHubPages = window.location.hostname.includes('github.io');
+    
+    if (isGitHubPages) {
+      // Use a microtask to avoid synchronous setState in effect
+      Promise.resolve().then(() => {
+        setAds([
+          { id: 1, text: "Support Introvert Up! Unlock Pro Mode for more missions.", link: "#" },
+          { id: 2, text: "Join our discord community of socially confident introverts.", link: "#" }
+        ]);
+      });
+      return;
+    }
+
     fetch('/api/ads')
-      .then(res => res.json())
+      .then(res => {
+        if (!res.ok) throw new Error("Not found");
+        return res.json();
+      })
       .then(data => setAds(data))
-      .catch(err => console.error("Failed to fetch ads", err));
+      .catch(err => {
+        console.error("Failed to fetch ads", err);
+        // Fallback if backend is down
+        setAds([
+          { id: 1, text: "Support Introvert Up! Unlock Pro Mode for more missions.", link: "#" }
+        ]);
+      });
   }, []);
 
   if (ads.length === 0) return null;
