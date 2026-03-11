@@ -2,7 +2,7 @@
   "name": "Social-I",
   "short_name": "Social-I",
   "description": "A gamified social confidence builder.",
-  "start_url": "/",
+  "start_url": "./",
   "display": "standalone",
   "background_color": "#0a0a0a",
   "theme_color": "#4f46e5",
